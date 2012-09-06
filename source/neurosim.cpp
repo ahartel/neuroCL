@@ -8,8 +8,11 @@ using namespace std;
 /*
  * Constants
  */
-const int N = 1000;
+const int Ne = 800;
+const int Ni = 200;
+const int N = Ne+Ni;
 const float v_thresh = 30/*mV*/;
+const float v_reset = -65/*mV*/;
 
 void get_device_info(cl_device_id* device)
 {
@@ -64,50 +67,68 @@ void get_device_info(cl_device_id* device)
 	cout << "Max. memory allocation size: " << max_mem_alloc_size/1024/1024 << "M" << endl;
 }
 
-void init_neurons(float* membranes)
+void setup(cl_platform_id* platform,
+	cl_context* context,
+	cl_command_queue* queue,
+	cl_device_id* device)
 {
-	for (int i=0; i<N; i++) {
-		membranes[i] = (float)rand()/float(RAND_MAX)*50.0;
-	}
-}
-
-int main() {
 	cl_int error = 0;   // Used to handle error codes
-	cl_platform_id platform;
-	cl_context context;
-	cl_command_queue queue;
-	cl_device_id device;
-
 	/*
 	 * set up system
 	 */
 	// Platform
-	error = clGetPlatformIDs( 1, &platform, NULL );
+	error = clGetPlatformIDs( 1, platform, NULL );
 	if (error != CL_SUCCESS) {
 	   cout << "Error getting platform id: " << errorMessage(error) << endl;
 	   exit(error);
 	}
 	// Device
-	error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 1, &device, NULL);
+	error = clGetDeviceIDs(*platform, CL_DEVICE_TYPE_ALL, 1, device, NULL);
 	if (error != CL_SUCCESS) {
 	   cout << "Error getting device ids: " << errorMessage(error) << endl;
 	   exit(error);
 	}
 	// Context
-	context = clCreateContext(0, 1, &device, NULL, NULL, &error);
+	*context = clCreateContext(0, 1, device, NULL, NULL, &error);
 	if (error != CL_SUCCESS) {
 	   cout << "Error creating context: " << errorMessage(error) << endl;
 	   exit(error);
 	}
 	// Command-queue
-	queue = clCreateCommandQueue(context, device, 0, &error);
+	*queue = clCreateCommandQueue(*context, *device, 0, &error);
 	if (error != CL_SUCCESS) {
 	   cout << "Error creating command queue: " << errorMessage(error) << endl;
 	   exit(error);
 	}
 
 	// print some information about the device to stdout
-	get_device_info(&device);
+	get_device_info(device);
+}
+
+void init_neurons(float* membranes, float* u, float* d, float* a)
+{
+	for (int i=0; i<N; i++) {
+		membranes[i] = (float)rand()/float(RAND_MAX)*50.0;
+		if (i < Ne) {
+			a[i] = 0.02;
+			d[i] = 8.0;
+		}
+		else {
+			a[i] = 0.1;
+			d[i] = 2.0;
+		}
+	}
+}
+
+int main()
+{
+	cl_int error = 0;   // Used to handle error codes
+	cl_platform_id platform;
+	cl_context context;
+	cl_command_queue queue;
+	cl_device_id device;
+
+	setup(&platform,&context,&queue,&device);
 
 	/*
 	 * load and compile kernel
@@ -163,13 +184,25 @@ int main() {
 	num_work_groups = 16;
 
 	float* membranes = new float[N];
+	float* u = new float[N];
+	float* d = new float[N];
+	float* a = new float[N];
 	unsigned int* spikes = new unsigned int[N];
 	unsigned int* k = new unsigned int[1];
 	k[0] = 0;
 
-	init_neurons(membranes);
+	init_neurons(membranes,u,d,a);
 
 	cl_mem cl_membranes = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, membranes, &error);
+	check_error("setting kernel args",error);
+	assert(error == CL_SUCCESS);
+	cl_mem cl_u = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, u, &error);
+	check_error("setting kernel args",error);
+	assert(error == CL_SUCCESS);
+	cl_mem cl_d = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, d, &error);
+	check_error("setting kernel args",error);
+	assert(error == CL_SUCCESS);
+	cl_mem cl_a = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, a, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
 	cl_mem cl_spikes = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(unsigned int)*N, NULL, &error);
@@ -182,10 +215,14 @@ int main() {
 	// Enqueuing parameters
 	// Note that we inform the size of the cl_mem object, not the size of the memory pointed by it
 	error = clSetKernelArg(neuron_fired, 0, sizeof(cl_mem), (void*)&cl_membranes);
-	error |= clSetKernelArg(neuron_fired, 1, sizeof(cl_mem), (void*)&cl_spikes);
-	error |= clSetKernelArg(neuron_fired, 2, sizeof(cl_mem), (void*)&cl_k);
-	error |= clSetKernelArg(neuron_fired, 3, sizeof(cl_float), (void*)&v_thresh);
-	error |= clSetKernelArg(neuron_fired, 4, sizeof(cl_uint), (void*)&N);
+	error = clSetKernelArg(neuron_fired, 1, sizeof(cl_mem), (void*)&cl_u);
+	error = clSetKernelArg(neuron_fired, 2, sizeof(cl_mem), (void*)&cl_d);
+	error = clSetKernelArg(neuron_fired, 3, sizeof(cl_mem), (void*)&cl_a);
+	error |= clSetKernelArg(neuron_fired, 4, sizeof(cl_mem), (void*)&cl_spikes);
+	error |= clSetKernelArg(neuron_fired, 5, sizeof(cl_mem), (void*)&cl_k);
+	error |= clSetKernelArg(neuron_fired, 6, sizeof(cl_float), (void*)&v_thresh);
+	error |= clSetKernelArg(neuron_fired, 7, sizeof(cl_float), (void*)&v_reset);
+	error |= clSetKernelArg(neuron_fired, 8, sizeof(cl_uint), (void*)&N);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
 
@@ -196,6 +233,7 @@ int main() {
 	// Reading back
 	unsigned int* check_k;
 	error = clEnqueueReadBuffer(queue, cl_spikes, CL_TRUE, 0, sizeof(unsigned int)*N, spikes, 0, NULL, NULL);
+	error = clEnqueueReadBuffer(queue, cl_u, CL_TRUE, 0, sizeof(float)*N, u, 0, NULL, NULL);
 	error = clEnqueueReadBuffer(queue, cl_k, CL_TRUE, 0, sizeof(unsigned int), check_k, 0, NULL, NULL);
 	check_error("enqueueing read buffer",error);
 	assert(error == CL_SUCCESS);
@@ -203,6 +241,7 @@ int main() {
 	cout << "Results:" << endl;
 	unsigned int num_fired=0;
 	for (int i=0; i<N; i++) {
+		cout << u[i] << endl;
 		if (membranes[i] > v_thresh) {
 			num_fired++;
 		}
