@@ -10,9 +10,13 @@ using namespace std;
  */
 const int Ne = 800;
 const int Ni = 200;
-const int N = Ne+Ni;
+const int N = Ne+Ni; // total number of neurons
+const int M = 100; // number of postsynaptic neurons
 const float v_thresh = 30/*mV*/;
 const float v_reset = -65/*mV*/;
+const int T = 1000; // number of timesteps
+const int timestep = 1e-6;
+const int M = 20;
 
 void get_device_info(cl_device_id* device)
 {
@@ -105,7 +109,9 @@ void setup(cl_platform_id* platform,
 	get_device_info(device);
 }
 
-void init_neurons(float* membranes, float* u, float* d, float* a)
+#define getrandom(max1) ((rand()%(int)((max1)))) // random integer between 0 and max-1
+
+void init_neurons(float* membranes, float* u, float* d, float* a, float*** weight_del, bool*** pre_fired, float* exc_input, unsigned int** post)
 {
 	for (int i=0; i<N; i++) {
 		membranes[i] = (float)rand()/float(RAND_MAX)*50.0;
@@ -116,6 +122,20 @@ void init_neurons(float* membranes, float* u, float* d, float* a)
 		else {
 			a[i] = 0.1;
 			d[i] = 2.0;
+		}
+
+		exc_input[i] = 0.0;
+
+		for (int j=0; j<N; j++) {
+			int r;
+			do{
+				exists = 0;		// avoid multiple synapses
+				if (i<Ne) r = getrandom(N);
+				else	  r = getrandom(Ne);// inh -> exc only
+				if (r==i) exists=1;									// no self-synapses 
+				for (int k=0;k<j;k++) if (post[i][k]==r) exists = 1;	// synapse already exists  
+			}while (exists == 1);
+			post[i][j]=r;
 		}
 	}
 }
@@ -187,11 +207,17 @@ int main()
 	float* u = new float[N];
 	float* d = new float[N];
 	float* a = new float[N];
-	unsigned int* spikes = new unsigned int[N];
-	unsigned int* k = new unsigned int[1];
+
+	unsigned int* spikes = new unsigned int[N*T];
+	unsigned int* k = new unsigned int[T];
 	k[0] = 0;
 
-	init_neurons(membranes,u,d,a);
+	float*** weight_del = new float[N][M][2];
+	bool*** pre_fired = new float[N][M][D];
+	unsigned int** post = new float[N][M];
+	float* exc_input = new float[N];
+
+	init_neurons(membranes,u,d,a,weight_del,pre_fired,exc_input,post);
 
 	cl_mem cl_membranes = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, membranes, &error);
 	check_error("setting kernel args",error);
@@ -205,10 +231,19 @@ int main()
 	cl_mem cl_a = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, a, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
-	cl_mem cl_spikes = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(unsigned int)*N, NULL, &error);
+	cl_mem cl_spikes = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(unsigned int)*N*T, NULL, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
-	cl_mem cl_k = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(unsigned int), k, &error);
+	cl_mem cl_k = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(unsigned int)*T, k, &error);
+	check_error("setting kernel args",error);
+	assert(error == CL_SUCCESS);
+	cl_mem cl_weight_del = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float)*T*M*2, weight_del, &error);
+	check_error("setting kernel args",error);
+	assert(error == CL_SUCCESS);
+	cl_mem cl_pre_fired = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(bool)*T*M*N, pre_fired, &error);
+	check_error("setting kernel args",error);
+	assert(error == CL_SUCCESS);
+	cl_mem cl_exc_input = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, exc_input, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
 
