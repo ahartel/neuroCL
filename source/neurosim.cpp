@@ -5,17 +5,8 @@
 
 using namespace std;
 
-/*
- * Constants
- */
-const int Ne = 8;
-const int Ni = 2;
-const int N = Ne+Ni; // total number of neurons
-const int M = 1; // number of postsynaptic neurons
-const float v_thresh = 30/*mV*/;
-const float v_reset = -65/*mV*/;
-const int T = 1000; // number of timesteps
-const int timestep = 1e-6;
+#define TIMING
+#include "helpers.h"
 
 void get_device_info(cl_device_id* device)
 {
@@ -108,39 +99,6 @@ void setup(cl_platform_id* platform,
 	get_device_info(device);
 }
 
-void init_neurons(float* membranes, float* u, float* d, float* a, float* I)
-{
-	for (int i=0; i<N; i++) {
-		membranes[i] = (float)rand()/float(RAND_MAX)*50.0;
-		I[i] = (float)rand()/float(RAND_MAX)*50.0;
-		u[i] = 0.2*membranes[i];
-		if (i < Ne) {
-			a[i] = 0.02;
-			d[i] = 8.0;
-		}
-		else {
-			a[i] = 0.1;
-			d[i] = 2.0;
-		}
-
-		/*
-		exc_input[i] = 0.0;
-
-		for (int j=0; j<N; j++) {
-			int r;
-			do{
-				exists = 0;		// avoid multiple synapses
-				if (i<Ne) r = getrandom(N);
-				else	  r = getrandom(Ne);// inh -> exc only
-				if (r==i) exists=1;									// no self-synapses 
-				for (int k=0;k<j;k++) if (post[i][k]==r) exists = 1;	// synapse already exists  
-			}while (exists == 1);
-			post[i][j]=r;
-		}
-		*/
-	}
-}
-
 void load_and_compile_kernel(cl_context* context,
 	cl_device_id* device,
 	const char* filename,
@@ -195,6 +153,9 @@ void load_and_compile_kernel(cl_context* context,
 
 int main()
 {
+	INIT_TIMER(complete)
+	START_TIMER(complete)
+
 	cl_int error = 0;   // Used to handle error codes
 	cl_platform_id platform;
 	cl_context context;
@@ -218,19 +179,20 @@ int main()
 	 * - add event to spike buffer
 	 */
 	size_t local_ws,global_ws,num_work_groups;
-	local_ws = 64;
-	global_ws = 1024;
-	num_work_groups = 16;
+	local_ws = 128;
+	global_ws = 16384;
+	num_work_groups = 256;
 
 	float membranes[N];
 	float u[N];
 	float d[N];
 	float a[N];
 	float I[N];
-	unsigned int spikes[N];
+	unsigned int spikes[N*T];
 	unsigned int k[1];
 	k[0] = 0;
 
+	srand(42);
 	init_neurons(membranes,u,d,a,I);
 /*
 	float*** weight_del = new float[N][M][2];
@@ -238,16 +200,6 @@ int main()
 	unsigned int** post = new float[N][M];
 	float* exc_input = new float[N];
 */
-
-	unsigned int num_fired=0;
-	for (int i=0; i<N; i++) {
-		cout << membranes[i] << endl;
-		if (membranes[i] > v_thresh) {
-			num_fired++;
-		}
-	}
-	cout << "Expexted spikes: ";
-	cout << num_fired << endl;
 
 	cl_mem cl_membranes = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, membranes, &error);
 	check_error("setting kernel args",error);
@@ -267,7 +219,7 @@ int main()
 	cl_mem cl_spikes = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(unsigned int)*N*T, NULL, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
-	cl_mem cl_k = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(unsigned int)*T, k, &error);
+	cl_mem cl_k = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(unsigned int), k, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
 	/*
@@ -308,41 +260,66 @@ int main()
 	check_error("setting kernel args for evolve_neuron",error);
 	assert(error == CL_SUCCESS);
 
-	error = clEnqueueNDRangeKernel(queue, neuron_fired, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL);
-	check_error("enqueueing NDRangeKernel",error);
-	assert(error == CL_SUCCESS);
-	error = clFinish(queue);
-	check_error("waiting for NDRangeKernel",error);
-	assert(error == CL_SUCCESS);
-	cout << "finished kernel neuron_fired" << endl;
+	unsigned int check_k[1];
+	float watched_membrane[1][T];
 
-	error = clEnqueueNDRangeKernel(queue, evolve_neuron, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL);
-	check_error("enqueueing NDRangeKernel",error);
-	assert(error == CL_SUCCESS);
-	error = clFinish(queue);
-	check_error("waiting for NDRangeKernel",error);
-	assert(error == CL_SUCCESS);
-	cout << "finished kernel evolve_neuron" << endl;
+	INIT_TIMER(kernels)
+	START_TIMER(kernels)
+	for (unsigned int t=0; t<T; t++)
+	{
+		error = clEnqueueNDRangeKernel(queue, neuron_fired, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL);
+		check_error("enqueueing NDRangeKernel",error);
+		assert(error == CL_SUCCESS);
+		error = clFinish(queue);
+		check_error("waiting for NDRangeKernel",error);
+		assert(error == CL_SUCCESS);
+		//cout << "finished kernel neuron_fired" << endl;
+/*
+		error = clEnqueueReadBuffer(queue, cl_k, CL_TRUE, 0, sizeof(unsigned int), check_k, 0, NULL, NULL);
+		check_error("enqueueing read buffer",error);
+		assert(error == CL_SUCCESS);
+		cout << "Num spikes after " << t << " ms: " << check_k[0] << endl;
+*/
+
+		error = clEnqueueNDRangeKernel(queue, evolve_neuron, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL);
+		check_error("enqueueing NDRangeKernel",error);
+		assert(error == CL_SUCCESS);
+		error = clFinish(queue);
+		check_error("waiting for NDRangeKernel",error);
+		assert(error == CL_SUCCESS);
+		//cout << "finished kernel evolve_neuron" << endl;
+
+		error = clEnqueueReadBuffer(queue, cl_membranes, CL_TRUE, 0, sizeof(unsigned int)*N, membranes, 0, NULL, NULL);
+		check_error("enqueueing read buffer",error);
+		assert(error == CL_SUCCESS);
+		watched_membrane[0][t] = membranes[0];
+	}
+	STOP_TIMER("kernels",kernels)
 
 	// Reading back
-	unsigned int check_k[1];
-	error = clEnqueueReadBuffer(queue, cl_spikes, CL_TRUE, 0, sizeof(unsigned int)*N, spikes, 0, NULL, NULL);
-	error = clEnqueueReadBuffer(queue, cl_membranes, CL_TRUE, 0, sizeof(float)*N, membranes, 0, NULL, NULL);
+	//error = clEnqueueReadBuffer(queue, cl_spikes, CL_TRUE, 0, sizeof(unsigned int)*N*T, spikes, 0, NULL, NULL);
+	//error = clEnqueueReadBuffer(queue, cl_membranes, CL_TRUE, 0, sizeof(float)*N, membranes, 0, NULL, NULL);
 	//error = clEnqueueReadBuffer(queue, cl_u, CL_TRUE, 0, sizeof(float)*N, u, 0, NULL, NULL);
 	error = clEnqueueReadBuffer(queue, cl_k, CL_TRUE, 0, sizeof(unsigned int), check_k, 0, NULL, NULL);
 	check_error("enqueueing read buffer",error);
 	assert(error == CL_SUCCESS);
 
 	cout << "Results:" << endl;
-	for (int i=0; i<N; i++) {
-		cout << membranes[i] << endl;
-	}
 	cout << "found: " << check_k[0] << endl;
 
+	ofstream myfile;
+	myfile.open("membrane.txt");
+	for (int i=0; i<T; i++) {
+		myfile << watched_membrane[0][i] << endl;
+	}
+	myfile.close();
+
+
 	clReleaseKernel(neuron_fired);
+	clReleaseKernel(evolve_neuron);
 	clReleaseCommandQueue(queue);
 	clReleaseContext(context);
-	clReleaseMemObject(cl_k);
 	clReleaseMemObject(cl_spikes);
-	clReleaseMemObject(cl_membranes);
+
+	STOP_TIMER("complete",complete)
 }
