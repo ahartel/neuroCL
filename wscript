@@ -6,6 +6,7 @@ def configure(conf):
 	conf.load('compiler_cxx')
 	conf.check_cxx(lib='OpenCL',use='opencl')
 	conf.env.CXXFLAGS = ['--std=c++11','-g']
+	conf.env.INCLUDES = 'source/'
 
 def build(bld):
 	bld.objects(
@@ -15,4 +16,5 @@ def build(bld):
 		]
 	)
 	bld.program(source='source/neurosim.cpp', target='neurosim', use='neuroobj OPENCL')
+	bld.program(source='source/compare/fire_evolve.cpp', target='loop_fire_evolve', use='neuroobj')
 
