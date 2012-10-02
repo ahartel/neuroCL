@@ -8,8 +8,8 @@ using namespace std;
 /*
  * Constants
  */
-const int Ne = 800;
-const int Ni = 200;
+const int Ne = 8;
+const int Ni = 2;
 const int N = Ne+Ni;
 const float v_thresh = 30/*mV*/;
 const float v_reset = -65/*mV*/;
@@ -105,10 +105,12 @@ void setup(cl_platform_id* platform,
 	get_device_info(device);
 }
 
-void init_neurons(float* membranes, float* u, float* d, float* a)
+void init_neurons(float* membranes, float* u, float* d, float* a, float* I)
 {
 	for (int i=0; i<N; i++) {
 		membranes[i] = (float)rand()/float(RAND_MAX)*50.0;
+		I[i] = (float)rand()/float(RAND_MAX)*50.0;
+		u[i] = 0.2*membranes[i];
 		if (i < Ne) {
 			a[i] = 0.02;
 			d[i] = 8.0;
@@ -118,6 +120,58 @@ void init_neurons(float* membranes, float* u, float* d, float* a)
 			d[i] = 2.0;
 		}
 	}
+}
+
+void load_and_compile_kernel(cl_context* context,
+	cl_device_id* device,
+	const char* filename,
+	const char* name,
+	cl_kernel* kernel)
+{
+	cl_int error = 0;   // Used to handle error codes
+	/*
+	 * load and compile kernel neuron_fired
+	 */
+
+	std::ifstream file(filename);
+	assert (file.good());
+	// read file contents
+	std::string source;
+	while(file.good()){
+		char line[256];
+		file.getline(line,255);
+		source += line;
+	}
+	file.close();
+	const char* str = source.c_str();
+
+	cl_program program = clCreateProgramWithSource( *context,
+                         1,
+                         &str,
+                         NULL, NULL );
+	cl_int result = clBuildProgram( program, 1, device, NULL, NULL, NULL );
+	if ( result )
+	{
+		std::cout << "Error during compilation! (" << result << ")" << std::endl;
+
+		// Shows the log
+		char* build_log;
+		size_t log_size;
+		// First call to know the proper size
+		clGetProgramBuildInfo(program, *device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+		build_log = new char[log_size+1];
+		// Second call to get the log
+		clGetProgramBuildInfo(program, *device, CL_PROGRAM_BUILD_LOG,
+			log_size, build_log, NULL);
+
+		build_log[log_size] = '\0';
+		cout << build_log << endl;
+		delete[] build_log;
+	}
+
+	// Extracting the kernel
+	*kernel = clCreateKernel(program, name, &error);
+	assert(error == CL_SUCCESS);
 }
 
 int main()
@@ -130,44 +184,10 @@ int main()
 
 	setup(&platform,&context,&queue,&device);
 
-	/*
-	 * load and compile kernel
-	 */
-	std::ifstream file("source/kernels/neuron_fired.c");
-	std::string source;
-	while(!file.eof()){
-		char line[256];
-		file.getline(line,255);
-		source += line;
-	}
-	const char* str = source.c_str();
-	cl_program program = clCreateProgramWithSource( context,
-                         1,
-                         &str,
-                         NULL, NULL );
-	cl_int result = clBuildProgram( program, 1, &device, NULL, NULL, NULL );
-	if ( result )
-	{
-		std::cout << "Error during compilation! (" << result << ")" << std::endl;
-
-		// Shows the log
-		char* build_log;
-		size_t log_size;
-		// First call to know the proper size
-		clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
-		build_log = new char[log_size+1];
-		// Second call to get the log
-		clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
-			log_size, build_log, NULL);
-
-		build_log[log_size] = '\0';
-		cout << build_log << endl;
-		delete[] build_log;
-	}
-
-	// Extracting the kernel
-	cl_kernel neuron_fired = clCreateKernel(program, "neuron_fired", &error);
-	assert(error == CL_SUCCESS);
+	cl_kernel neuron_fired;
+	load_and_compile_kernel(&context,&device,"source/kernels/neuron_fired.c","neuron_fired",&neuron_fired);
+	cl_kernel evolve_neuron;
+	load_and_compile_kernel(&context,&device,"source/kernels/evolve_neuron.c","evolve_neuron",&evolve_neuron);
 
 	/*
 	 * What we need here:
@@ -183,17 +203,28 @@ int main()
 	global_ws = 1024;
 	num_work_groups = 16;
 
-	float* membranes = new float[N];
-	float* u = new float[N];
-	float* d = new float[N];
-	float* a = new float[N];
-	unsigned int* spikes = new unsigned int[N];
-	unsigned int* k = new unsigned int[1];
+	float membranes[N];
+	float u[N];
+	float d[N];
+	float a[N];
+	float I[N];
+	unsigned int spikes[N];
+	unsigned int k[1];
 	k[0] = 0;
 
-	init_neurons(membranes,u,d,a);
+	init_neurons(membranes,u,d,a,I);
 
-	cl_mem cl_membranes = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, membranes, &error);
+	unsigned int num_fired=0;
+	for (int i=0; i<N; i++) {
+		cout << membranes[i] << endl;
+		if (membranes[i] > v_thresh) {
+			num_fired++;
+		}
+	}
+	cout << "Expexted spikes: ";
+	cout << num_fired << endl;
+
+	cl_mem cl_membranes = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, membranes, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
 	cl_mem cl_u = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, u, &error);
@@ -203,6 +234,9 @@ int main()
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
 	cl_mem cl_a = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, a, &error);
+	check_error("setting kernel args",error);
+	assert(error == CL_SUCCESS);
+	cl_mem cl_I = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, I, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
 	cl_mem cl_spikes = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(unsigned int)*N, NULL, &error);
@@ -215,43 +249,60 @@ int main()
 	// Enqueuing parameters
 	// Note that we inform the size of the cl_mem object, not the size of the memory pointed by it
 	error = clSetKernelArg(neuron_fired, 0, sizeof(cl_mem), (void*)&cl_membranes);
-	error = clSetKernelArg(neuron_fired, 1, sizeof(cl_mem), (void*)&cl_u);
-	error = clSetKernelArg(neuron_fired, 2, sizeof(cl_mem), (void*)&cl_d);
-	error = clSetKernelArg(neuron_fired, 3, sizeof(cl_mem), (void*)&cl_a);
+	error |= clSetKernelArg(neuron_fired, 1, sizeof(cl_mem), (void*)&cl_u);
+	error |= clSetKernelArg(neuron_fired, 2, sizeof(cl_mem), (void*)&cl_d);
+	error |= clSetKernelArg(neuron_fired, 3, sizeof(cl_mem), (void*)&cl_a);
 	error |= clSetKernelArg(neuron_fired, 4, sizeof(cl_mem), (void*)&cl_spikes);
 	error |= clSetKernelArg(neuron_fired, 5, sizeof(cl_mem), (void*)&cl_k);
 	error |= clSetKernelArg(neuron_fired, 6, sizeof(cl_float), (void*)&v_thresh);
 	error |= clSetKernelArg(neuron_fired, 7, sizeof(cl_float), (void*)&v_reset);
 	error |= clSetKernelArg(neuron_fired, 8, sizeof(cl_uint), (void*)&N);
-	check_error("setting kernel args",error);
+	check_error("setting kernel args for neuron_fired",error);
+	assert(error == CL_SUCCESS);
+
+	// Enqueuing parameters
+	// Note that we inform the size of the cl_mem object, not the size of the memory pointed by it
+	error = clSetKernelArg(evolve_neuron, 0, sizeof(cl_mem), (void*)&cl_membranes);
+	error |= clSetKernelArg(evolve_neuron, 1, sizeof(cl_mem), (void*)&cl_u);
+	error |= clSetKernelArg(evolve_neuron, 2, sizeof(cl_mem), (void*)&cl_a);
+	error |= clSetKernelArg(evolve_neuron, 3, sizeof(cl_mem), (void*)&cl_I);
+	error |= clSetKernelArg(evolve_neuron, 4, sizeof(cl_float), (void*)&v_thresh);
+	error |= clSetKernelArg(evolve_neuron, 5, sizeof(cl_float), (void*)&v_reset);
+	error |= clSetKernelArg(evolve_neuron, 6, sizeof(cl_uint), (void*)&N);
+	check_error("setting kernel args for evolve_neuron",error);
 	assert(error == CL_SUCCESS);
 
 	error = clEnqueueNDRangeKernel(queue, neuron_fired, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL);
 	check_error("enqueueing NDRangeKernel",error);
 	assert(error == CL_SUCCESS);
+	error = clFinish(queue);
+	check_error("waiting for NDRangeKernel",error);
+	assert(error == CL_SUCCESS);
+	cout << "finished kernel neuron_fired" << endl;
+
+	error = clEnqueueNDRangeKernel(queue, evolve_neuron, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL);
+	check_error("enqueueing NDRangeKernel",error);
+	assert(error == CL_SUCCESS);
+	error = clFinish(queue);
+	check_error("waiting for NDRangeKernel",error);
+	assert(error == CL_SUCCESS);
+	cout << "finished kernel evolve_neuron" << endl;
 
 	// Reading back
-	unsigned int* check_k;
+	unsigned int check_k[1];
 	error = clEnqueueReadBuffer(queue, cl_spikes, CL_TRUE, 0, sizeof(unsigned int)*N, spikes, 0, NULL, NULL);
-	error = clEnqueueReadBuffer(queue, cl_u, CL_TRUE, 0, sizeof(float)*N, u, 0, NULL, NULL);
+	error = clEnqueueReadBuffer(queue, cl_membranes, CL_TRUE, 0, sizeof(float)*N, membranes, 0, NULL, NULL);
+	//error = clEnqueueReadBuffer(queue, cl_u, CL_TRUE, 0, sizeof(float)*N, u, 0, NULL, NULL);
 	error = clEnqueueReadBuffer(queue, cl_k, CL_TRUE, 0, sizeof(unsigned int), check_k, 0, NULL, NULL);
 	check_error("enqueueing read buffer",error);
 	assert(error == CL_SUCCESS);
 
 	cout << "Results:" << endl;
-	unsigned int num_fired=0;
 	for (int i=0; i<N; i++) {
-		cout << u[i] << endl;
-		if (membranes[i] > v_thresh) {
-			num_fired++;
-		}
+		cout << membranes[i] << endl;
 	}
-	cout << "expected: " << num_fired << endl;
 	cout << "found: " << check_k[0] << endl;
 
-	delete[] k;
-	delete[] spikes;
-	delete[] membranes;
 	clReleaseKernel(neuron_fired);
 	clReleaseCommandQueue(queue);
 	clReleaseContext(context);
