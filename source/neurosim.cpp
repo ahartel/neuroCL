@@ -11,12 +11,11 @@ using namespace std;
 const int Ne = 8;
 const int Ni = 2;
 const int N = Ne+Ni; // total number of neurons
-const int M = 100; // number of postsynaptic neurons
+const int M = 1; // number of postsynaptic neurons
 const float v_thresh = 30/*mV*/;
 const float v_reset = -65/*mV*/;
 const int T = 1000; // number of timesteps
 const int timestep = 1e-6;
-const int M = 20;
 
 void get_device_info(cl_device_id* device)
 {
