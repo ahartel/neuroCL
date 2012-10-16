@@ -183,8 +183,8 @@ int main()
 	global_ws = 16384;
 	num_work_groups = 256;
 
-	float membranes[N];
-	float u[N];
+	double membranes[N];
+	double u[N];
 	float d[N];
 	float a[N];
 	float I[N];
@@ -201,10 +201,10 @@ int main()
 	float* exc_input = new float[N];
 */
 
-	cl_mem cl_membranes = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, membranes, &error);
+	cl_mem cl_membranes = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double)*N, membranes, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
-	cl_mem cl_u = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, u, &error);
+	cl_mem cl_u = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double)*N, u, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
 	cl_mem cl_d = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, d, &error);
@@ -261,7 +261,7 @@ int main()
 	assert(error == CL_SUCCESS);
 
 	unsigned int check_k[1];
-	float watched_membrane[1][T];
+	double watched_membrane[1][T];
 
 	INIT_TIMER(kernels)
 	START_TIMER(kernels)
@@ -289,10 +289,11 @@ int main()
 		assert(error == CL_SUCCESS);
 		//cout << "finished kernel evolve_neuron" << endl;
 
-		error = clEnqueueReadBuffer(queue, cl_membranes, CL_TRUE, 0, sizeof(unsigned int)*N, membranes, 0, NULL, NULL);
+		error = clEnqueueReadBuffer(queue, cl_membranes, CL_TRUE, 0, sizeof(double)*N, membranes, 0, NULL, NULL);
 		check_error("enqueueing read buffer",error);
 		assert(error == CL_SUCCESS);
 		watched_membrane[0][t] = membranes[0];
+
 	}
 	STOP_TIMER("kernels",kernels)
 
@@ -306,6 +307,7 @@ int main()
 
 	cout << "Results:" << endl;
 	cout << "found: " << check_k[0] << endl;
+
 
 	ofstream myfile;
 	myfile.open("membrane.txt");

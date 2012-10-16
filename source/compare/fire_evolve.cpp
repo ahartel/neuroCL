@@ -11,21 +11,21 @@ int main()
 {
 	INIT_TIMER(complete)
 
-	float membranes[N];
-	float u[N];
+	double membranes[N];
+	double u[N];
 	float d[N];
 	float a[N];
 	float I[N];
 	unsigned int spikes[N];
 	unsigned int k[T];
-	k[0] = 0;
+	for (unsigned int i=0; i<T; i++) k[i] = 0;
 
 	srand(42);
 	init_neurons(membranes,u,d,a,I);
 
 	unsigned int total_spikes = 0;
 
-	float watched_membrane[1][T];
+	double watched_membrane[1][T];
 
 	INIT_TIMER(loops)
 	for (unsigned int t=0; t<T; t++)
@@ -52,7 +52,7 @@ int main()
 		}
 
 		total_spikes += k[t];
-		cout << "Num spikes after " << t << " ms: " << total_spikes << endl;
+		//cout << "Num spikes after " << t << " ms: " << total_spikes << endl;
 	}
 
 	STOP_TIMER("loops",loops)
