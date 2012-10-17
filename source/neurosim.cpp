@@ -5,6 +5,9 @@
 
 using namespace std;
 
+#define MAX_NUM_PLATFORMS 10
+#define MAX_NUM_DEVICES 10
+
 #define TIMING
 #include "helpers.h"
 
@@ -78,44 +81,52 @@ void get_device_info(cl_device_id* device)
 	cout << "Max. memory allocation size: " << max_mem_alloc_size/1024/1024 << "M" << endl;
 }
 
-void setup(cl_platform_id* platform,
+void setup(cl_platform_id* platforms,
 	cl_context* context,
 	cl_command_queue* queue,
-	cl_device_id* device)
+	cl_device_id* devices)
 {
 	cl_int error = 0;   // Used to handle error codes
 	/*
 	 * set up system
 	 */
 	// Platform
-	error = clGetPlatformIDs( 1, platform, NULL );
+	cl_uint num_platforms;
+	error = clGetPlatformIDs(MAX_NUM_PLATFORMS, platforms, &num_platforms );
 	if (error != CL_SUCCESS) {
 	   cout << "Error getting platform id: " << errorMessage(error) << endl;
 	   exit(error);
 	}
+	std::cout << "Number of platforms found: " << num_platforms << std::endl;
+	std::cout << "Using platform 0" << std::endl;
+	// print some information about the platform to stdout
+	get_platform_info(&(platforms[0]));
+	cout << "-----------------------------------" << endl;
 	// Device
-	error = clGetDeviceIDs(*platform, CL_DEVICE_TYPE_ALL, 1, device, NULL);
+	cl_uint num_devices;
+	error = clGetDeviceIDs(platforms[0], CL_DEVICE_TYPE_ALL, MAX_NUM_DEVICES, devices, &num_devices);
 	if (error != CL_SUCCESS) {
 	   cout << "Error getting device ids: " << errorMessage(error) << endl;
 	   exit(error);
 	}
+	std::cout << "Number of devices found: " << num_devices << std::endl;
+	std::cout << "Using device 0" << std::endl;
 	// Context
-	*context = clCreateContext(0, 1, device, NULL, NULL, &error);
+	*context = clCreateContext(0, 1, &(devices[0]), NULL, NULL, &error);
 	if (error != CL_SUCCESS) {
 	   cout << "Error creating context: " << errorMessage(error) << endl;
 	   exit(error);
 	}
 	// Command-queue
-	*queue = clCreateCommandQueue(*context, *device, 0, &error);
+	*queue = clCreateCommandQueue(*context, devices[0], 0, &error);
 	if (error != CL_SUCCESS) {
 	   cout << "Error creating command queue: " << errorMessage(error) << endl;
 	   exit(error);
 	}
 
 	// print some information about the device to stdout
-	get_device_info(device);
-	// print some information about the platform to stdout
-	get_platform_info(platform);
+	get_device_info(&(devices[0]));
+	cout << "-----------------------------------" << endl;
 
 }
 
@@ -184,16 +195,21 @@ void load_compiled_kernel(cl_context* context,
 	std::ifstream file(filename);
 	assert (file.good());
 	// read file contents
-	char** binaries = new char*[1];
-	binaries[0] = new char[4096];
-	file.read(binaries[0],4096);
+	unsigned char** binaries = new unsigned char*[1];
+
+	char read_bytes[4096];
+	file.read(read_bytes,4096);
+	binaries[0] = (unsigned char*)read_bytes;
+
 	size_t lengths[1];
 	lengths[0] = file.gcount();
-	/*
+
+	const unsigned char** test = (const unsigned char**)binaries;
+
 	for (unsigned int i=0; i<lengths[0]; i++)
-		std::cout << binaries[0][i];
+		std::cout << test[0][i];
     std::cout << std::endl;
-	*/
+
 	file.close();
 
 	cl_program program;
@@ -202,10 +218,10 @@ void load_compiled_kernel(cl_context* context,
                          1,
                          device,
 						 lengths,
-						 (const unsigned char**)(binaries),
+						 test,
                          binary_status, &error );
 
-	delete[] binaries[0];
+	//delete[] binaries[0];
 	delete[] binaries;
 	check_error("clCreateProgramWithBinary: binary_status",binary_status[0]);
 	assert(binary_status == CL_SUCCESS);
@@ -224,18 +240,18 @@ int main()
 	START_TIMER(complete)
 
 	cl_int error = 0;   // Used to handle error codes
-	cl_platform_id platform;
+	cl_platform_id platforms[MAX_NUM_PLATFORMS];
 	cl_context context;
 	cl_command_queue queue;
-	cl_device_id device;
+	cl_device_id devices[MAX_NUM_DEVICES];
 
-	setup(&platform,&context,&queue,&device);
+	setup(platforms,&context,&queue,devices);
 
 	cl_kernel neuron_fired;
-	load_and_compile_kernel(&context,&device,"source/kernels/neuron_fired.c","neuron_fired",&neuron_fired);
-	//load_compiled_kernel(&context,&device,"source/kernels/neuron_fired.ir","neuron_fired",&neuron_fired);
+	//load_and_compile_kernel(&context,&device,"source/kernels/neuron_fired.c","neuron_fired",&neuron_fired);
+	load_compiled_kernel(&context,&(devices[0]),"source/kernels/neuron_fired.ir","neuron_fired",&neuron_fired);
 	cl_kernel evolve_neuron;
-	load_and_compile_kernel(&context,&device,"source/kernels/evolve_neuron.c","evolve_neuron",&evolve_neuron);
+	load_and_compile_kernel(&context,&(devices[0]),"source/kernels/evolve_neuron.c","evolve_neuron",&evolve_neuron);
 	//load_compiled_kernel(&context,&device,"source/kernels/evolve_neuron.ir","evolve_neuron",&evolve_neuron);
 
 	/*
