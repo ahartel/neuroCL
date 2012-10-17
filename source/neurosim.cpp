@@ -8,6 +8,23 @@ using namespace std;
 #define TIMING
 #include "helpers.h"
 
+void get_platform_info(cl_platform_id* platform)
+{
+	/*
+	 * get device info
+	 */
+	cl_int error = 0;   // Used to handle error codes
+
+	size_t param_value_size_ret;
+	// query device name
+	char platform_profile[100];
+	error = clGetPlatformInfo(*platform,CL_PLATFORM_PROFILE,100,&platform_profile,&param_value_size_ret);
+	check_error("getting platform profile",error);
+	assert (error == CL_SUCCESS);
+	std::cout << "Platform profile: " << platform_profile << std::endl;
+
+}
+
 void get_device_info(cl_device_id* device)
 {
 	/*
@@ -97,6 +114,9 @@ void setup(cl_platform_id* platform,
 
 	// print some information about the device to stdout
 	get_device_info(device);
+	// print some information about the platform to stdout
+	get_platform_info(platform);
+
 }
 
 void load_and_compile_kernel(cl_context* context,
@@ -106,10 +126,11 @@ void load_and_compile_kernel(cl_context* context,
 	cl_kernel* kernel)
 {
 	cl_int error = 0;   // Used to handle error codes
-	/*
-	 * load and compile kernel neuron_fired
-	 */
 
+	/*
+	 * load and compile kernel
+	 * First step: load source code from <filename>
+	 */
 	std::ifstream file(filename);
 	assert (file.good());
 	// read file contents
@@ -151,6 +172,52 @@ void load_and_compile_kernel(cl_context* context,
 	assert(error == CL_SUCCESS);
 }
 
+void load_compiled_kernel(cl_context* context,
+	cl_device_id* device,
+	const char* filename,
+	const char* name,
+	cl_kernel* kernel)
+{
+	cl_int error = 0;   // Used to handle error codes
+	cl_int binary_status[1];
+
+	std::ifstream file(filename);
+	assert (file.good());
+	// read file contents
+	char** binaries = new char*[1];
+	binaries[0] = new char[4096];
+	file.read(binaries[0],4096);
+	size_t lengths[1];
+	lengths[0] = file.gcount();
+	/*
+	for (unsigned int i=0; i<lengths[0]; i++)
+		std::cout << binaries[0][i];
+    std::cout << std::endl;
+	*/
+	file.close();
+
+	cl_program program;
+
+	program = clCreateProgramWithBinary( *context,
+                         1,
+                         device,
+						 lengths,
+						 (const unsigned char**)(binaries),
+                         binary_status, &error );
+
+	delete[] binaries[0];
+	delete[] binaries;
+	check_error("clCreateProgramWithBinary: binary_status",binary_status[0]);
+	assert(binary_status == CL_SUCCESS);
+	check_error("clCreateProgramWithBinary",error);
+	assert(error == CL_SUCCESS);
+
+	// Extracting the kernel
+	*kernel = clCreateKernel(program, name, &error);
+	check_error("clCreateKernel",error);
+	assert(error == CL_SUCCESS);
+}
+
 int main()
 {
 	INIT_TIMER(complete)
@@ -166,8 +233,10 @@ int main()
 
 	cl_kernel neuron_fired;
 	load_and_compile_kernel(&context,&device,"source/kernels/neuron_fired.c","neuron_fired",&neuron_fired);
+	//load_compiled_kernel(&context,&device,"source/kernels/neuron_fired.ir","neuron_fired",&neuron_fired);
 	cl_kernel evolve_neuron;
 	load_and_compile_kernel(&context,&device,"source/kernels/evolve_neuron.c","evolve_neuron",&evolve_neuron);
+	//load_compiled_kernel(&context,&device,"source/kernels/evolve_neuron.ir","evolve_neuron",&evolve_neuron);
 
 	/*
 	 * What we need here:
