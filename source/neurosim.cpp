@@ -292,17 +292,16 @@ int main()
 	 * - iterate over all neurons, check v against threshold
 	 * - add event to spike buffer
 	 */
-	size_t local_ws,global_ws,num_work_groups;
+	size_t local_ws,global_ws;
 	local_ws = 128;
 	global_ws = 1024;
-	num_work_groups = 8;
 
 	float membranes[N];
 	float u[N];
 	float d[N];
 	float a[N];
 	float I[N];
-	unsigned int spikes[N*T];
+	unsigned int spikes[int(N*T*h*10)];
 	unsigned int k[1];
 	k[0] = 0;
 
