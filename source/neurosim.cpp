@@ -265,11 +265,11 @@ int main()
 	 */
 	size_t local_ws,global_ws,num_work_groups;
 	local_ws = 128;
-	global_ws = 16384;
-	num_work_groups = 256;
+	global_ws = 1024;
+	num_work_groups = 8;
 
-	double membranes[N];
-	double u[N];
+	float membranes[N];
+	float u[N];
 	float d[N];
 	float a[N];
 	float I[N];
@@ -286,10 +286,10 @@ int main()
 	float* exc_input = new float[N];
 */
 
-	cl_mem cl_membranes = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double)*N, membranes, &error);
+	cl_mem cl_membranes = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, membranes, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
-	cl_mem cl_u = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(double)*N, u, &error);
+	cl_mem cl_u = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, u, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
 	cl_mem cl_d = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, d, &error);
@@ -339,14 +339,13 @@ int main()
 	error |= clSetKernelArg(evolve_neuron, 1, sizeof(cl_mem), (void*)&cl_u);
 	error |= clSetKernelArg(evolve_neuron, 2, sizeof(cl_mem), (void*)&cl_a);
 	error |= clSetKernelArg(evolve_neuron, 3, sizeof(cl_mem), (void*)&cl_I);
-	error |= clSetKernelArg(evolve_neuron, 4, sizeof(cl_float), (void*)&v_thresh);
-	error |= clSetKernelArg(evolve_neuron, 5, sizeof(cl_float), (void*)&v_reset);
-	error |= clSetKernelArg(evolve_neuron, 6, sizeof(cl_uint), (void*)&N);
+	error |= clSetKernelArg(evolve_neuron, 4, sizeof(cl_uint), (void*)&N);
+	error |= clSetKernelArg(evolve_neuron, 5, sizeof(cl_float), (void*)&h);
 	check_error("setting kernel args for evolve_neuron",error);
 	assert(error == CL_SUCCESS);
 
 	unsigned int check_k[1];
-	double watched_membrane[1][T];
+	float watched_membrane[1][T];
 
 	INIT_TIMER(kernels)
 	START_TIMER(kernels)
@@ -374,7 +373,7 @@ int main()
 		assert(error == CL_SUCCESS);
 		//cout << "finished kernel evolve_neuron" << endl;
 
-		error = clEnqueueReadBuffer(queue, cl_membranes, CL_TRUE, 0, sizeof(double)*N, membranes, 0, NULL, NULL);
+		error = clEnqueueReadBuffer(queue, cl_membranes, CL_TRUE, 0, sizeof(float)*N, membranes, 0, NULL, NULL);
 		check_error("enqueueing read buffer",error);
 		assert(error == CL_SUCCESS);
 		watched_membrane[0][t] = membranes[0];

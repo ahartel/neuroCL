@@ -1,8 +1,7 @@
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
 __kernel void neuron_fired (
-			__global double* membranes,
-			__global double* u,
+			__global float* membranes,
+			__global float* u,
 			__global const float* d,
 			__global const float* a,
 			__global unsigned int* spikes,

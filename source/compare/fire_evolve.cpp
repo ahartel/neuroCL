@@ -11,8 +11,8 @@ int main()
 {
 	INIT_TIMER(complete)
 
-	double membranes[N];
-	double u[N];
+	float membranes[N];
+	float u[N];
 	float d[N];
 	float a[N];
 	float I[N];
@@ -25,7 +25,7 @@ int main()
 
 	unsigned int total_spikes = 0;
 
-	double watched_membrane[1][T];
+	float watched_membrane[1][T];
 
 	INIT_TIMER(loops)
 	for (unsigned int t=0; t<T; t++)
@@ -42,11 +42,20 @@ int main()
 
 		for (int i=0; i<N; i++)
 		{
-			membranes[i] += 0.5 * ( ( 0.04 * membranes[i] + 5.0 ) * membranes[i] + 140.0 - u[i] + I[i] );
-			membranes[i] += 0.5 * ( ( 0.04 * membranes[i] + 5.0 ) * membranes[i] + 140.0 - u[i] + I[i] );
-			//membranes[i] += 0.25 * ( ( 0.04 * membranes[i] + 5.0 ) * membranes[i] + 140.0 - u[i] + I[i] );
-			//membranes[i] += 0.25 * ( ( 0.04 * membranes[i] + 5.0 ) * membranes[i] + 140.0 - u[i] + I[i] );
-			u[i]+=a[i]*(0.2*membranes[i]-u[i]);
+			membranes[i] += h * 0.5 * ( ( 0.04 * membranes[i] + 5.0 ) * membranes[i] + 140.0 - u[i] + I[i] );
+			membranes[i] += h * 0.5 * ( ( 0.04 * membranes[i] + 5.0 ) * membranes[i] + 140.0 - u[i] + I[i] );
+
+			//float y0_,ya,ya_,yb,yb_,yc,yc_;
+			//y0_ = ( 0.04 * membranes[i] + 5.0 ) * membranes[i] + 140.0 - u[i] + I[i];
+			//ya = membranes[i] + h * 0.5 * y0_;
+			//ya_ = ( 0.04 * ya + 5.0 ) * ya + 140.0 - u[i] + I[i];
+			//yb = membranes[i] + h * 0.5 * ya_;
+			//yb_ = ( 0.04 * yb + 5.0 ) * yb + 140.0 - u[i] + I[i];
+			//yc = membranes[i] + h * yb_;
+			//yc_ = ( 0.04 * yc + 5.0 ) * yc + 140.0 - u[i] + I[i];
+			//membranes[i] = membranes[i] + h/6.0 * (y0_ + 2 * (ya_+yb_) + yc_);
+
+			u[i] += h * a[i]*(0.2*membranes[i]-u[i]);
 
 			watched_membrane[0][t] = membranes[0];
 		}
