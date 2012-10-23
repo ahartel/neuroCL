@@ -25,7 +25,12 @@ void get_platform_info(cl_platform_id* platform)
 	check_error("getting platform profile",error);
 	assert (error == CL_SUCCESS);
 	std::cout << "Platform profile: " << platform_profile << std::endl;
-
+	// query platform extensions
+	char platform_extensions[512];
+	error = clGetPlatformInfo(*platform,CL_PLATFORM_EXTENSIONS,512,&platform_extensions,&param_value_size_ret);
+	check_error("getting platform extensions",error);
+	assert (error == CL_SUCCESS);
+	std::cout << "Platform extenions: " << platform_extensions << std::endl;
 }
 
 void get_device_info(cl_device_id* device)
@@ -79,6 +84,18 @@ void get_device_info(cl_device_id* device)
 	check_error("getting max. mem allocation size",error);
 	assert (error == CL_SUCCESS);
 	cout << "Max. memory allocation size: " << max_mem_alloc_size/1024/1024 << "M" << endl;
+	// Does the device support cl_khr_fp64?
+	cl_uint double_vector_size;
+	error = clGetDeviceInfo(*device,CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,sizeof(cl_uint),&double_vector_size,NULL);
+	check_error("getting device information",error);
+	assert (error == CL_SUCCESS);
+	std::cout << "preferred vector width for double: " << double_vector_size << std::endl;
+	// Device extensions
+	char extensions[512];
+	error = clGetDeviceInfo(*device,CL_DEVICE_EXTENSIONS,512,&extensions,&param_value_size_ret);
+	check_error("getting device information",error);
+	assert (error == CL_SUCCESS);
+	std::cout << "Device extensions: " << extensions << std::endl;
 }
 
 void setup(cl_platform_id* platforms,
@@ -150,6 +167,7 @@ void load_and_compile_kernel(cl_context* context,
 		char line[256];
 		file.getline(line,255);
 		source += line;
+		source += string("\n");
 	}
 	file.close();
 	const char* str = source.c_str();
@@ -157,8 +175,12 @@ void load_and_compile_kernel(cl_context* context,
 	cl_program program = clCreateProgramWithSource( *context,
                          1,
                          &str,
-                         NULL, NULL );
-	cl_int result = clBuildProgram( program, 1, device, NULL, NULL, NULL );
+                         NULL, &error );
+	check_error("Compiling kernel "+string(name),error);
+	assert(error == CL_SUCCESS);
+
+	//cl_int result = clBuildProgram( program, 1, device, NULL, NULL, NULL );
+	cl_int result = clBuildProgram( program, 0, NULL, NULL, NULL, NULL );
 	if ( result )
 	{
 		std::cout << "Error during compilation! (" << result << ")" << std::endl;
@@ -176,10 +198,16 @@ void load_and_compile_kernel(cl_context* context,
 		build_log[log_size] = '\0';
 		cout << build_log << endl;
 		delete[] build_log;
+
+	}
+	else
+	{
+		std::cout << "Program in " << filename << " successfully compiled" << endl;
 	}
 
 	// Extracting the kernel
 	*kernel = clCreateKernel(program, name, &error);
+	check_error("Creating kernel "+string(name)+" from source file "+string(filename),error);
 	assert(error == CL_SUCCESS);
 }
 
@@ -223,6 +251,7 @@ void load_compiled_kernel(cl_context* context,
 
 	//delete[] binaries[0];
 	delete[] binaries;
+	cout << binary_status << endl;
 	check_error("clCreateProgramWithBinary: binary_status",binary_status[0]);
 	assert(binary_status == CL_SUCCESS);
 	check_error("clCreateProgramWithBinary",error);
@@ -248,8 +277,8 @@ int main()
 	setup(platforms,&context,&queue,devices);
 
 	cl_kernel neuron_fired;
-	//load_and_compile_kernel(&context,&device,"source/kernels/neuron_fired.c","neuron_fired",&neuron_fired);
-	load_compiled_kernel(&context,&(devices[0]),"source/kernels/neuron_fired.ir","neuron_fired",&neuron_fired);
+	load_and_compile_kernel(&context,&(devices[0]),"source/kernels/neuron_fired.c","neuron_fired",&neuron_fired);
+	//load_compiled_kernel(&context,&(devices[0]),"source/kernels/neuron_fired.ir","neuron_fired",&neuron_fired);
 	cl_kernel evolve_neuron;
 	load_and_compile_kernel(&context,&(devices[0]),"source/kernels/evolve_neuron.c","evolve_neuron",&evolve_neuron);
 	//load_compiled_kernel(&context,&device,"source/kernels/evolve_neuron.ir","evolve_neuron",&evolve_neuron);
