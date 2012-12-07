@@ -1,8 +1,12 @@
-
+import sys 
 import matplotlib.pyplot as plt
-plt.plotfile('membrane.txt')
+
+#plt.figure()
+#plt.subplot(121)
+plt.plotfile(sys.argv[1],(0,1))#,newfig=False)
 plt.title('neuroCL')
-plt.plotfile('membrane_compare.txt')
+#plt.subplot(122)
+plt.plotfile(sys.argv[2],(0,1))
 plt.title('compare')
 plt.show()
 

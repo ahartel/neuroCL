@@ -374,6 +374,7 @@ int main()
 
 	unsigned int check_k[1];
 	float watched_membrane[1][T];
+	float watched_us[1][T];
 
 	INIT_TIMER(kernels)
 	START_TIMER(kernels)
@@ -405,6 +406,10 @@ int main()
 		check_error("enqueueing read buffer",error);
 		assert(error == CL_SUCCESS);
 		watched_membrane[0][t] = membranes[0];
+		error = clEnqueueReadBuffer(queue, cl_u, CL_TRUE, 0, sizeof(float)*N, u, 0, NULL, NULL);
+		check_error("enqueueing read buffer",error);
+		assert(error == CL_SUCCESS);
+		watched_us[0][t] = u[0];
 
 	}
 	STOP_TIMER("kernels",kernels)
@@ -424,7 +429,7 @@ int main()
 	ofstream myfile;
 	myfile.open("membrane.txt");
 	for (int i=0; i<T; i++) {
-		myfile << watched_membrane[0][i] << endl;
+		myfile << i << "," << watched_membrane[0][i] << endl;//<< "," << watched_us[0][i] << endl;
 	}
 	myfile.close();
 

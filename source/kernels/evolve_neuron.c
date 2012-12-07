@@ -17,8 +17,8 @@ __kernel void evolve_neuron (
 	If the answer is YES, the work-item performs the corresponding computation*/
 	if (idx < num)
 	{
-		membranes[idx] += h * 0.5 * ( ( 0.04 * membranes[idx] + 5.0 ) * membranes[idx] + 140.0 - u[idx] + I[idx] );
-		membranes[idx] += h * 0.5 * ( ( 0.04 * membranes[idx] + 5.0 ) * membranes[idx] + 140.0 - u[idx] + I[idx] );
+		membranes[idx] += h * 0.5 * (( 0.04 * membranes[idx] * membranes[idx]) + (5.0 * membranes[idx] + (140.0 - u[idx] + I[idx] )));
+		membranes[idx] += h * 0.5 * (( 0.04 * membranes[idx] * membranes[idx]) + (5.0 * membranes[idx] + (140.0 - u[idx] + I[idx] )));
 /*
 		float y0_,ya,ya_,yb,yb_,yc,yc_;
 		y0_ = ( 0.04 * membranes[idx] + 5.0 ) * membranes[idx] + 140.0 - u[idx] + I[idx];
