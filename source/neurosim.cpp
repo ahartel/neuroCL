@@ -8,7 +8,6 @@ using namespace std;
 #define MAX_NUM_PLATFORMS 10
 #define MAX_NUM_DEVICES 10
 
-#define TIMING
 #include "helpers.h"
 
 void get_platform_info(cl_platform_id* platform)
@@ -26,11 +25,13 @@ void get_platform_info(cl_platform_id* platform)
 	assert (error == CL_SUCCESS);
 	std::cout << "Platform profile: " << platform_profile << std::endl;
 	// query platform extensions
+	/*
 	char platform_extensions[512];
 	error = clGetPlatformInfo(*platform,CL_PLATFORM_EXTENSIONS,512,&platform_extensions,&param_value_size_ret);
 	check_error("getting platform extensions",error);
 	assert (error == CL_SUCCESS);
 	std::cout << "Platform extenions: " << platform_extensions << std::endl;
+	*/
 }
 
 void get_device_info(cl_device_id* device)
@@ -91,11 +92,13 @@ void get_device_info(cl_device_id* device)
 	assert (error == CL_SUCCESS);
 	std::cout << "preferred vector width for double: " << double_vector_size << std::endl;
 	// Device extensions
+	/*
 	char extensions[512];
 	error = clGetDeviceInfo(*device,CL_DEVICE_EXTENSIONS,512,&extensions,&param_value_size_ret);
 	check_error("getting device information",error);
 	assert (error == CL_SUCCESS);
 	std::cout << "Device extensions: " << extensions << std::endl;
+	*/
 }
 
 void setup(cl_platform_id* platforms,
@@ -373,8 +376,13 @@ int main()
 	assert(error == CL_SUCCESS);
 
 	unsigned int check_k[1];
-	float watched_membrane[1][T];
-	float watched_us[1][T];
+
+#ifdef WATCH_NEURONS
+	float watched_membrane[num_watched_neurons][T];
+#ifdef WATCH_ADAPTATION
+	float watched_us[num_watched_neurons][T];
+#endif
+#endif
 
 	INIT_TIMER(kernels)
 	START_TIMER(kernels)
@@ -402,14 +410,23 @@ int main()
 		assert(error == CL_SUCCESS);
 		//cout << "finished kernel evolve_neuron" << endl;
 
+#ifdef WATCH_NEURONS
 		error = clEnqueueReadBuffer(queue, cl_membranes, CL_TRUE, 0, sizeof(float)*N, membranes, 0, NULL, NULL);
 		check_error("enqueueing read buffer",error);
 		assert(error == CL_SUCCESS);
-		watched_membrane[0][t] = membranes[0];
+#ifdef WATCH_ADAPTATION
 		error = clEnqueueReadBuffer(queue, cl_u, CL_TRUE, 0, sizeof(float)*N, u, 0, NULL, NULL);
 		check_error("enqueueing read buffer",error);
 		assert(error == CL_SUCCESS);
-		watched_us[0][t] = u[0];
+#endif
+		for (unsigned int i=0; i < num_watched_neurons; i++)
+		{
+			watched_membrane[i][t] = membranes[neurons_tobe_watched[i]];
+#ifdef WATCH_ADAPTATION
+			watched_us[i][t] = u[neurons_tobe_watched[i]];
+#endif
+		}
+#endif
 
 	}
 	STOP_TIMER("kernels",kernels)
@@ -425,14 +442,22 @@ int main()
 	cout << "Results:" << endl;
 	cout << "found: " << check_k[0] << endl;
 
-
+#ifdef WATCH_NEURONS
 	ofstream myfile;
 	myfile.open("membrane.txt");
-	for (int i=0; i<T; i++) {
-		myfile << i << "," << watched_membrane[0][i] << endl;//<< "," << watched_us[0][i] << endl;
+	for (int t=0; t<T; t++) {
+		myfile << t;
+		for (unsigned int n=0; n < num_watched_neurons; n++)
+		{
+			myfile << "," << watched_membrane[n][t];
+#ifdef WATCH_ADAPTATION
+			myfile << "," << watched_us[n][t];
+#endif
+		}
+		myfile << endl;
 	}
 	myfile.close();
-
+#endif
 
 	clReleaseKernel(neuron_fired);
 	clReleaseKernel(evolve_neuron);

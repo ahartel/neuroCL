@@ -1,14 +1,19 @@
 /*
  * Constants
  */
-const int Ne = 800;//12800;
-const int Ni = 200;//3200;
+const int Ne = 80;//12800;
+const int Ni = 20;//3200;
 const int N = Ne+Ni; // total number of neurons
 const int M = 1; // number of postsynaptic neurons
 const float v_thresh = 30./*mV*/;
 const float v_reset = -65/*mV*/;
 const int T = 100000; // number of timesteps
-const float h = 0.001; // timestep in seconds
+const float h = 0.01; // timestep in milliseconds
+
+
+#define TIMING
+//#define WATCH_NEURONS
+//#define WATCH_ADAPTATION
 
 void init_neurons(float* membranes, float* u, float* d, float* a, float* I)
 {
@@ -16,7 +21,7 @@ void init_neurons(float* membranes, float* u, float* d, float* a, float* I)
 		//membranes[i] = (float)rand()/float(RAND_MAX)*50.0;
 		membranes[i] = v_reset;
 		//I[i] = 10.0;
-		I[i] = (float)rand()/float(RAND_MAX)*150.0;
+		I[i] = (float)rand()/float(RAND_MAX)*125.0;
 		u[i] = 0.2*membranes[i];
 		if (i < Ne) {
 			a[i] = 0.02;
@@ -60,3 +65,9 @@ std::chrono::duration_cast<std::chrono::microseconds>( \
 #define START_TIMER(var)
 #define STOP_TIMER(name,var)
 #endif
+
+#ifdef WATCH_NEURONS
+const unsigned int neurons_tobe_watched[] = {0,17};
+const unsigned int num_watched_neurons = 2;
+#endif
+

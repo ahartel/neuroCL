@@ -2,7 +2,6 @@
 #include <iostream>
 #include <fstream>
 
-#define TIMING
 #include "helpers.h"
 
 using namespace std;
@@ -25,8 +24,12 @@ int main()
 
 	unsigned int total_spikes = 0;
 
-	float watched_membrane[1][T];
-	float watched_us[1][T];
+#ifdef WATCH_NEURONS
+	float watched_membrane[num_watched_neurons][T];
+#ifdef WATCH_ADAPTATION
+	float watched_us[num_watched_neurons][T];
+#endif
+#endif
 
 	INIT_TIMER(loops)
 	for (unsigned int t=0; t<T; t++)
@@ -60,8 +63,15 @@ int main()
 			u[i] += h * a[i]*(0.2*membranes[i]-u[i]);
 		}
 
-		watched_membrane[0][t] = membranes[0];
-		watched_us[0][t] = u[0];
+#ifdef WATCH_NEURONS
+		for (unsigned int i=0; i < num_watched_neurons; i++)
+		{
+			watched_membrane[i][t] = membranes[neurons_tobe_watched[i]];
+#ifdef WATCH_ADAPTATION
+			watched_us[i][t] = u[neurons_tobe_watched[i]];
+#endif
+		}
+#endif
 
 		total_spikes += k[t];
 		//cout << "Num spikes after " << t << " ms: " << total_spikes << endl;
@@ -71,13 +81,22 @@ int main()
 
 	cout << "found: " << total_spikes << endl;
 
+#ifdef WATCH_NEURONS
 	ofstream myfile;
 	myfile.open("membrane_compare.txt");
-	for (int i=0; i<T; i++)
-	{
-		myfile << i << "," << watched_membrane[0][i] << endl;//<< "," << watched_us[0][i] << endl;
+	for (int t=0; t<T; t++) {
+		myfile << t;
+		for (unsigned int n=0; n < num_watched_neurons; n++)
+		{
+			myfile << "," << watched_membrane[n][t];
+#ifdef WATCH_ADAPTATION
+			myfile << "," << watched_us[n][t];
+#endif
+		}
+		myfile << endl;
 	}
 	myfile.close();
+#endif
 
 	STOP_TIMER("complete", complete)
 }
