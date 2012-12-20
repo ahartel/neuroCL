@@ -187,26 +187,25 @@ void load_and_compile_kernel(cl_context* context,
 	if ( result )
 	{
 		std::cout << "Error during compilation! (" << result << ")" << std::endl;
-
-		// Shows the log
-		char* build_log;
-		size_t log_size;
-		// First call to know the proper size
-		clGetProgramBuildInfo(program, *device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
-		build_log = new char[log_size+1];
-		// Second call to get the log
-		clGetProgramBuildInfo(program, *device, CL_PROGRAM_BUILD_LOG,
-			log_size, build_log, NULL);
-
-		build_log[log_size] = '\0';
-		cout << build_log << endl;
-		delete[] build_log;
-
 	}
 	else
 	{
 		std::cout << "Program in " << filename << " successfully compiled" << endl;
 	}
+
+	// Shows the log
+	char* build_log;
+	size_t log_size;
+	// First call to know the proper size
+	clGetProgramBuildInfo(program, *device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+	build_log = new char[log_size+1];
+	// Second call to get the log
+	clGetProgramBuildInfo(program, *device, CL_PROGRAM_BUILD_LOG,
+		log_size, build_log, NULL);
+
+	build_log[log_size] = '\0';
+	cout << build_log << endl;
+	delete[] build_log;
 
 	// Extracting the kernel
 	*kernel = clCreateKernel(program, name, &error);
