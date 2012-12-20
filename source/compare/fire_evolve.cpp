@@ -15,11 +15,10 @@ int main()
 	float d[N];
 	float a[N];
 	float I[N];
-	unsigned int spikes[N];
+	unsigned int spikes[N*T];
 	unsigned int k[T];
 	for (unsigned int i=0; i<T; i++) k[i] = 0;
 
-	srand(42);
 	init_neurons(membranes,u,d,a,I);
 
 	unsigned int total_spikes = 0;
@@ -41,7 +40,7 @@ int main()
 			{
 				membranes[i] = v_reset;
 				u[i] += d[i];
-				spikes[k[t]++] = i;
+				spikes[total_spikes++] = i;
 			}
 		}
 		// evolve loop
@@ -49,16 +48,6 @@ int main()
 		{
 			membranes[i] += h * 0.5 * (( 0.04 * membranes[i] * membranes[i]) + (5.0 * membranes[i] + (140.0 - u[i] + I[i] )));
 			membranes[i] += h * 0.5 * (( 0.04 * membranes[i] * membranes[i]) + (5.0 * membranes[i] + (140.0 - u[i] + I[i] )));
-
-			//float y0_,ya,ya_,yb,yb_,yc,yc_;
-			//y0_ = ( 0.04 * membranes[i] + 5.0 ) * membranes[i] + 140.0 - u[i] + I[i];
-			//ya = membranes[i] + h * 0.5 * y0_;
-			//ya_ = ( 0.04 * ya + 5.0 ) * ya + 140.0 - u[i] + I[i];
-			//yb = membranes[i] + h * 0.5 * ya_;
-			//yb_ = ( 0.04 * yb + 5.0 ) * yb + 140.0 - u[i] + I[i];
-			//yc = membranes[i] + h * yb_;
-			//yc_ = ( 0.04 * yc + 5.0 ) * yc + 140.0 - u[i] + I[i];
-			//membranes[i] = membranes[i] + h/6.0 * (y0_ + 2 * (ya_+yb_) + yc_);
 
 			u[i] += h * a[i]*(0.2*membranes[i]-u[i]);
 		}
@@ -72,18 +61,17 @@ int main()
 #endif
 		}
 #endif
-
-		total_spikes += k[t];
-		//cout << "Num spikes after " << t << " ms: " << total_spikes << endl;
+		k[t] = total_spikes;
+		//cout << "Num spikes after " << t << " ms: " << k[t] << endl;
 	}
 
 	STOP_TIMER("loops",loops)
 
-	cout << "found: " << total_spikes << endl;
+	cout << "found: " << k[T-1] << endl;
 
-#ifdef WATCH_NEURONS
 	ofstream myfile;
-	myfile.open("membrane_compare.txt");
+#ifdef WATCH_NEURONS
+	myfile.open("results/membrane_compare.txt");
 	for (int t=0; t<T; t++) {
 		myfile << t;
 		for (unsigned int n=0; n < num_watched_neurons; n++)
@@ -97,6 +85,18 @@ int main()
 	}
 	myfile.close();
 #endif
+
+	myfile.open("results/spikes_compare.txt");
+	for (int t=1; t<T; t++)
+	{
+		for (unsigned int n=k[t-1]; n < k[t]; n++)
+		{
+			myfile << t;
+			myfile << "," << spikes[n];
+			myfile << endl;
+		}
+	}
+	myfile.close();
 
 	STOP_TIMER("complete", complete)
 }
