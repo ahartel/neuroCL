@@ -5,7 +5,7 @@ def options(opt):
 def configure(conf):
 	conf.load('compiler_cxx')
 	conf.check_cxx(lib='OpenCL',use='opencl')
-	conf.env.CXXFLAGS = ['--std=c++11','-g']
+	conf.env.CXXFLAGS = ['-std=c++0x','-g']
 	conf.env.INCLUDES = 'source/'
 
 def build(bld):

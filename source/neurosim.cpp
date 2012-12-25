@@ -295,17 +295,28 @@ int main()
 	 * - add event to spike buffer
 	 */
 	size_t local_ws,global_ws;
-	local_ws = 128;
-	global_ws = 1024;
+	local_ws = 512;
+	global_ws = 512*(int(N/512)+1);
 
+	unsigned int memory_used = 0;
 	float membranes[N];
+		memory_used += N*sizeof(float);
 	float u[N];
+		memory_used += N*sizeof(float);
 	float d[N];
+		memory_used += N*sizeof(float);
 	float a[N];
+		memory_used += N*sizeof(float);
 	float I[N];
-	unsigned int spikes[int(N*T*h)];
+		memory_used += N*sizeof(float);
+	size_t spike_array_length = int(N*T*h/10);
+	unsigned int spikes[spike_array_length];
+		memory_used += spike_array_length*sizeof(unsigned int);
 	unsigned int k[T];
+		memory_used += T*sizeof(unsigned int);
 	k[0] = 0;
+
+	cout << "Memory used: " << memory_used/1024 << "kB" << endl;
 
 	init_neurons(membranes,u,d,a,I);
 /*
@@ -330,7 +341,7 @@ int main()
 	cl_mem cl_I = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, I, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
-	cl_mem cl_spikes = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(unsigned int)*N*T*h, NULL, &error);
+	cl_mem cl_spikes = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(unsigned int)*spike_array_length, NULL, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
 	cl_mem cl_k = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(unsigned int), &(k[0]), &error);
@@ -431,7 +442,7 @@ int main()
 	/*
 	* Read stuff back from openCL memories
 	*/
-	error = clEnqueueReadBuffer(queue, cl_spikes, CL_TRUE, 0, sizeof(unsigned int)*N*T*h, spikes, 0, NULL, NULL);
+	error = clEnqueueReadBuffer(queue, cl_spikes, CL_TRUE, 0, sizeof(unsigned int)*spike_array_length, spikes, 0, NULL, NULL);
 	//error = clEnqueueReadBuffer(queue, cl_membranes, CL_TRUE, 0, sizeof(float)*N, membranes, 0, NULL, NULL);
 	//error = clEnqueueReadBuffer(queue, cl_u, CL_TRUE, 0, sizeof(float)*N, u, 0, NULL, NULL);
 	//error = clEnqueueReadBuffer(queue, cl_k, CL_TRUE, 0, sizeof(unsigned int), check_k, 0, NULL, NULL);

@@ -15,7 +15,7 @@ int main()
 	float d[N];
 	float a[N];
 	float I[N];
-	unsigned int spikes[N*T];
+	unsigned int spikes[int(N*T*h/10.)];
 	unsigned int k[T];
 	for (unsigned int i=0; i<T; i++) k[i] = 0;
 
