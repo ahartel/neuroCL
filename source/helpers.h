@@ -9,7 +9,7 @@ const int N = Ne+Ni; // total number of neurons
 const static int M = 100; // number of postsynaptic neurons
 const float v_thresh = 30./*mV*/;
 const float v_reset = -65/*mV*/;
-const int T = 10000; // number of timesteps
+const int T = 600; // number of seconds to simulate
 const float h = 1; // timestep in milliseconds
 const static int D = 20; // max. delay in ms
 
@@ -18,7 +18,7 @@ using namespace std;
 #define getrandom(max1) ((rand()%(int)((max1)))) // random integer between 0 and max-1
 
 #define TIMING
-#define WATCH_NEURONS
+#undef WATCH_NEURONS
 #undef WATCH_ADAPTATION
 
 void init_neurons(float* membranes, float* u, float* d, float* a, float I[N][D], float weights[N][M], int delays[N][M], int post_neurons[N][M], int* num_post)
@@ -55,21 +55,6 @@ void init_neurons(float* membranes, float* u, float* d, float* a, float I[N][D],
 			while (post_neurons[i][m] == i)
 				post_neurons[i][m] = getrandom(N);
 		}
-		/*
-		exc_input[i] = 0.0;
-
-		for (int j=0; j<N; j++) {
-			int r;
-			do{
-				exists = 0;		// avoid multiple synapses
-				if (i<Ne) r = getrandom(N);
-				else	  r = getrandom(Ne);// inh -> exc only
-				if (r==i) exists=1;									// no self-synapses 
-				for (int k=0;k<j;k++) if (post[i][k]==r) exists = 1;	// synapse already exists  
-			}while (exists == 1);
-			post[i][j]=r;
-		}
-		*/
 	}
 }
 
@@ -89,8 +74,6 @@ std::chrono::duration_cast<std::chrono::microseconds>( \
 #define STOP_TIMER(name,var)
 #endif
 
-#ifdef WATCH_NEURONS
 const unsigned int neurons_tobe_watched[] = {0,17};
 const unsigned int num_watched_neurons = 2;
-#endif
 
