@@ -40,6 +40,7 @@ void init_neurons_sparse(float* membranes, float* u, float* d, float* a, float I
 	for (int i=0; i<N; i++) {
 		num_post[i] = getrandom(100);
 		int delays[M];
+		vector<int> synapse_numbers[D];
 		vector<int> pst_n;
 		vector<float> wgt_n;
 		// set delay_count and delay_start initially to zero
@@ -57,23 +58,31 @@ void init_neurons_sparse(float* membranes, float* u, float* d, float* a, float I
 				wgt_n.push_back(-5.);
 
 			delays[m] = getrandom(D);
+			synapse_numbers[delays[m]].push_back(m);
 			delay_count[i][delays[m]]++;
 
-			post_neurons[i].push_back(getrandom(N));
-			while (post_neurons[i].back() == i)
-				post_neurons[i][post_neurons[i].size()-1] = getrandom(N);
+			pst_n.push_back(getrandom(N));
+			while (pst_n.back() == i)
+				pst_n[pst_n.size()-1] = getrandom(N);
 		}
 		// sort connectivity values according to delay values
 		vector<int> pst_n_sort;
 		vector<float> wgt_n_sort;
-		for (int m=0; m<num_post[i]; m++)
-		n{
-			pst_n_sort
+		for (int d=0; d<D; d++)
+		{
+			vector<int>::iterator delay_it = synapse_numbers[d].begin();
+			while (delay_it != synapse_numbers[d].end())
+			{
+				pst_n_sort.push_back(pst_n[*delay_it]);
+				wgt_n_sort.push_back(wgt_n[*delay_it]);
+
+				delay_it++;
+			}
 		}
 
 		// add values to global arrays
-		weights[i] = wgt_n;
-		post_neurons[i] = pst_n;
+		weights[i] = wgt_n_sort;
+		post_neurons[i] = pst_n_sort;
 
 		int last_delay = 0;
 		for (int d=0; d<D; d++)
@@ -109,9 +118,9 @@ void write_spikes(unsigned int sec, unsigned int* spikes, unsigned int* k)
 {
 	ofstream myfile;
 	if (sec==0)
-		myfile.open("results/spikes_compare.txt");
+		myfile.open("results/spikes_compare_sparse.txt");
 	else
-		myfile.open("results/spikes_compare.txt",ios::app);
+		myfile.open("results/spikes_compare_sparse.txt",ios::app);
 	for (int t=1; t<1000; t++)
 	{
 		for (unsigned int n=k[t-1]; n < k[t]; n++)
@@ -123,6 +132,34 @@ void write_spikes(unsigned int sec, unsigned int* spikes, unsigned int* k)
 	}
 	myfile.close();
 
+}
+
+int get_delays(int delay_count[D],int synapseID)
+{
+	int delay = 0;
+	int cnt = 0;
+	while (cnt < synapseID)
+	{
+		if (++cnt > delay_count[delay])
+			delay++;
+	}
+	return delay;
+}
+
+template<typename T>
+void print_loop (T* array, size_t size)
+{
+	if (array[0] < 10)
+		cout << 0;
+	cout << array[0];
+	for (unsigned int i=1; i<size; i++)
+	{
+		cout << ", ";
+		if (array[i] < 10)
+			cout << 0;
+		cout << array[i];
+	}
+	cout << endl;
 }
 
 int main()
@@ -148,6 +185,19 @@ int main()
 	for (unsigned int i=0; i<1000; i++) k[i] = 0;
 
 	init_neurons_sparse(membranes,u,d,a,I,weights,delay_start,delay_count,post_neurons,num_post);
+
+	if (0)
+	{
+		for (unsigned int n=0; n<N; n++)
+		{
+			cout << "num_post[" << n << "]: " << num_post[n] << endl;
+			cout << "delay_start[" << n << "]: ";
+			print_loop(delay_start[n],D);
+			cout << "delay_count[" << n << "]: ";
+			print_loop(delay_count[n],D);
+		}
+		return 0;
+	}
 
 	unsigned int total_spikes = 0;
 
@@ -189,7 +239,7 @@ int main()
 				int neuronID = spikes[i];
 				for (int m=0; m<num_post[neuronID]; m++)
 				{
-					I[post_neurons[neuronID][m]][(delays[neuronID][m]+delay_pointer+1)%D] += weights[neuronID][m];
+					I[post_neurons[neuronID][m]][(get_delays(delay_count[neuronID],m)+delay_pointer+1)%D] += weights[neuronID][m];
 					//if (post_neurons[neuronID][m]==0)
 					//{
 					//	cout << "Time " << t << ": Injecting current to neuron " << post_neurons[neuronID][m] << " from neuron " << neuronID << " into delay slot " << (delays[neuronID][m]+delay_pointer+1)%D << endl;
