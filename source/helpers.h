@@ -50,7 +50,9 @@ void init_neurons(float* membranes, float* u, float* d, float* a, float I[N][D],
 				weights[i][m] = 6.;
 			else
 				weights[i][m] = -5.;
-			delays[i][m] = 1;
+
+			delays[i][m] = getrandom(D);
+
 			post_neurons[i][m] = getrandom(N);
 			while (post_neurons[i][m] == i)
 				post_neurons[i][m] = getrandom(N);

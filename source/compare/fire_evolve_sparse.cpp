@@ -1,10 +1,88 @@
 #include <stdlib.h>
 #include <iostream>
 #include <fstream>
-
+#include <vector>
 #include "helpers.h"
 
 using namespace std;
+
+void init_neurons_sparse(float* membranes, float* u, float* d, float* a, float I[N][D], vector<float> weights[N], int delay_start[N][D], int delay_count[N][D], vector<int>* post_neurons, int* num_post)
+{
+	srand(42);
+
+	/*
+	 * init neuron parameters
+	 */
+	// iterate over neurons
+	for (int i=0; i<N; i++) {
+		//membranes[i] = (float)rand()/float(RAND_MAX)*50.0;
+		membranes[i] = v_reset;
+
+		for (int d=0; d<D; d++)
+		{
+			I[i][d] = 0;//(float)rand()/float(RAND_MAX)*10.0;
+		}
+		u[i] = 0.2*membranes[i];
+		if (i < Ne) {
+			a[i] = 0.02;
+			d[i] = 8.0;
+		}
+		else {
+			a[i] = 0.1;
+			d[i] = 2.0;
+		}
+	}
+
+	/*
+	 * init connectivity
+	 */
+	// iterate over neurons
+	for (int i=0; i<N; i++) {
+		num_post[i] = getrandom(100);
+		int delays[M];
+		vector<int> pst_n;
+		vector<float> wgt_n;
+		// set delay_count and delay_start initially to zero
+		for (int d=0; d<D; d++)
+		{
+			delay_start[i][d] = 0;
+			delay_count[i][d] = 0;
+		}
+		// create values for connectivity
+		for (int m=0; m<num_post[i]; m++)
+		{
+			if (i<Ne)
+				wgt_n.push_back(6.);
+			else
+				wgt_n.push_back(-5.);
+
+			delays[m] = getrandom(D);
+			delay_count[i][delays[m]]++;
+
+			post_neurons[i].push_back(getrandom(N));
+			while (post_neurons[i].back() == i)
+				post_neurons[i][post_neurons[i].size()-1] = getrandom(N);
+		}
+		// sort connectivity values according to delay values
+		vector<int> pst_n_sort;
+		vector<float> wgt_n_sort;
+		for (int m=0; m<num_post[i]; m++)
+		n{
+			pst_n_sort
+		}
+
+		// add values to global arrays
+		weights[i] = wgt_n;
+		post_neurons[i] = pst_n;
+
+		int last_delay = 0;
+		for (int d=0; d<D; d++)
+		{
+			delay_start[i][d] = last_delay;
+			last_delay += delay_count[i][d];
+		}
+	}
+}
 
 void write_watched_membranes(unsigned int sec, float watched_membrane[num_watched_neurons][1000], float watched_us[num_watched_neurons][1000])
 {
@@ -59,16 +137,17 @@ int main()
 	float I[N][D];
 	int delay_pointer = 0;
 	// network parameters
-	float weights[N][M];
-	int delays[N][M];
-	int post_neurons[N][M];
+	int delay_start[N][D];
+	int delay_count[N][D];
+	vector<float> weights[N];
+	vector<int> post_neurons[N];
 	int num_post[N];
 	// spike storage
 	unsigned int spikes[int(N*1000*h)];
 	unsigned int k[1000];
 	for (unsigned int i=0; i<1000; i++) k[i] = 0;
 
-	init_neurons(membranes,u,d,a,I,weights,delays,post_neurons,num_post);
+	init_neurons_sparse(membranes,u,d,a,I,weights,delay_start,delay_count,post_neurons,num_post);
 
 	unsigned int total_spikes = 0;
 
@@ -109,8 +188,8 @@ int main()
 			{
 				int neuronID = spikes[i];
 				for (int m=0; m<num_post[neuronID]; m++)
-				{	
-					I[post_neurons[neuronID][m]][(delays[neuronID][m]+delay_pointer+1)%D] += weights[neuronID][m];	
+				{
+					I[post_neurons[neuronID][m]][(delays[neuronID][m]+delay_pointer+1)%D] += weights[neuronID][m];
 					//if (post_neurons[neuronID][m]==0)
 					//{
 					//	cout << "Time " << t << ": Injecting current to neuron " << post_neurons[neuronID][m] << " from neuron " << neuronID << " into delay slot " << (delays[neuronID][m]+delay_pointer+1)%D << endl;
