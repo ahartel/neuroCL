@@ -38,7 +38,7 @@ void init_neurons_sparse(float* membranes, float* u, float* d, float* a, float I
 	 */
 	// iterate over neurons
 	for (int i=0; i<N; i++) {
-		num_post[i] = getrandom(100);
+		num_post[i] = getrandom(M);
 		int delays[M];
 		vector<int> synapse_numbers[D];
 		vector<int> pst_n;
@@ -62,8 +62,11 @@ void init_neurons_sparse(float* membranes, float* u, float* d, float* a, float I
 			delay_count[i][delays[m]]++;
 
 			pst_n.push_back(getrandom(N));
+
 			while (pst_n.back() == i)
 				pst_n[pst_n.size()-1] = getrandom(N);
+
+			//cout << "Neuron " << i << ": Added post-neuron " << pst_n.back() << " with delay " << delays[m] << endl;
 		}
 		// sort connectivity values according to delay values
 		vector<int> pst_n_sort;
@@ -87,7 +90,10 @@ void init_neurons_sparse(float* membranes, float* u, float* d, float* a, float I
 		int last_delay = 0;
 		for (int d=0; d<D; d++)
 		{
-			delay_start[i][d] = last_delay;
+			if (delay_count[i][d] > 0)
+				delay_start[i][d] = last_delay;
+			else
+				delay_start[i][d] = 0;
 			last_delay += delay_count[i][d];
 		}
 	}
@@ -134,20 +140,35 @@ void write_spikes(unsigned int sec, unsigned int* spikes, unsigned int* k)
 
 }
 
-int get_delays(int delay_count[D],int synapseID)
+int get_delays(int delay_start[D],int synapseID)
 {
-	int delay = 0;
-	int cnt = 0;
-	while (cnt < synapseID)
+	int last_delay_start = 0;
+	int last_delay = 0;
+	for (int d=0; d<D; d++)
 	{
-		if (++cnt > delay_count[delay])
-			delay++;
+		if (delay_start[d] > synapseID && last_delay_start <= synapseID)
+		{
+			cout << "Found delay " << d << " for synapseID " << synapseID << endl;
+			return d;
+		}
+		else if (delay_start[d] <= synapseID && d==D-1)
+		{
+			cout << "Found delay " << d << " for synapseID " << synapseID << endl;
+			return d;
+		}
+
+		if (delay_start[d] > 0)
+		{
+			last_delay_start = delay_start[d];
+			last_delay = d;
+		}
 	}
-	return delay;
+
+	throw "Delay not found";
 }
 
 template<typename T>
-void print_loop (T* array, size_t size)
+void print_loop (T array, size_t size)
 {
 	if (array[0] < 10)
 		cout << 0;
@@ -164,7 +185,6 @@ void print_loop (T* array, size_t size)
 
 int main()
 {
-	INIT_TIMER(complete)
 	// neuron variables
 	float membranes[N];
 	float u[N];
@@ -191,6 +211,8 @@ int main()
 		for (unsigned int n=0; n<N; n++)
 		{
 			cout << "num_post[" << n << "]: " << num_post[n] << endl;
+			cout << "post-neurons: ";
+			print_loop(post_neurons[n],post_neurons[n].size());
 			cout << "delay_start[" << n << "]: ";
 			print_loop(delay_start[n],D);
 			cout << "delay_count[" << n << "]: ";
@@ -199,6 +221,7 @@ int main()
 		return 0;
 	}
 
+	INIT_TIMER(complete)
 	unsigned int total_spikes = 0;
 
 #ifdef WATCH_NEURONS
@@ -237,14 +260,42 @@ int main()
 			for (int i=last_spike_count; i<total_spikes; i++)
 			{
 				int neuronID = spikes[i];
+				//cout << "Found spike in neuron " << neuronID << endl;
+				// skip this neuron, if it doesn't connect
+				// (this can happen in a randomly connected network)
+				if (num_post[neuronID] == 0)
+					continue;
+				// get first used delay value
+				int d = 0;
+				int delay_cnt = 0;
+				// loop through delay values until a used one is found
+				while (delay_count[neuronID][d] == 0 && d < D)
+				{
+					d++;
+				}
+				// save the number of neurons that use this delay
+				delay_cnt = delay_count[neuronID][d];	
+				// check if the loop has run through without result
+				if (d == D-1 && delay_count[neuronID][d] == 0)
+				{
+					cout << "Neuron " << neuronID;
+					throw "Error: No delays found.";
+				}
+				// Now, generate the current for all post-syn. neurons
 				for (int m=0; m<num_post[neuronID]; m++)
 				{
-					I[post_neurons[neuronID][m]][(get_delays(delay_count[neuronID],m)+delay_pointer+1)%D] += weights[neuronID][m];
-					//if (post_neurons[neuronID][m]==0)
-					//{
-					//	cout << "Time " << t << ": Injecting current to neuron " << post_neurons[neuronID][m] << " from neuron " << neuronID << " into delay slot " << (delays[neuronID][m]+delay_pointer+1)%D << endl;
-					//	cout << I[post_neurons[neuronID][m]][(delays[neuronID][m]+delay_pointer+1)%D] << endl;
-					//}
+					I[post_neurons[neuronID][m]][(d+delay_pointer+1)%D] += weights[neuronID][m];
+					// keep track of the number of remaining neurons with current delay
+					// if necessary, increase delay value
+					if (--delay_cnt == 0)
+					{
+						d++;
+						while (delay_count[neuronID][d] == 0 && d < D)
+						{
+							d++;
+						}
+						delay_cnt = delay_count[neuronID][d];	
+					}
 				}
 			}
 
@@ -276,7 +327,7 @@ int main()
 			delay_pointer++;
 			if (delay_pointer == D)
 				delay_pointer = 0;
-		}
+		} // end of millisecond loop
 
 		STOP_TIMER("one second loop",loops)
 
@@ -289,7 +340,7 @@ int main()
 #endif
 
 		total_spikes = 0;
-	}
+	} // end of 'second' loop
 	STOP_TIMER("complete", complete)
 }
 

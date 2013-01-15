@@ -42,7 +42,7 @@ void init_neurons(float* membranes, float* u, float* d, float* a, float I[N][D],
 			d[i] = 2.0;
 		}
 
-		num_post[i] = getrandom(100);
+		num_post[i] = getrandom(M);
 
 		for (int m=0; m<num_post[i]; m++)
 		{

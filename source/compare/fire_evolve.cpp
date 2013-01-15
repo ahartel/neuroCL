@@ -49,7 +49,6 @@ void write_spikes(unsigned int sec, unsigned int* spikes, unsigned int* k)
 
 int main()
 {
-	INIT_TIMER(complete)
 	// neuron variables
 	float membranes[N];
 	float u[N];
@@ -70,6 +69,7 @@ int main()
 
 	init_neurons(membranes,u,d,a,I,weights,delays,post_neurons,num_post);
 
+	INIT_TIMER(complete)
 	unsigned int total_spikes = 0;
 
 #ifdef WATCH_NEURONS
