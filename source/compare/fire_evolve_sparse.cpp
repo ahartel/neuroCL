@@ -6,99 +6,6 @@
 
 using namespace std;
 
-void init_neurons_sparse(float* membranes, float* u, float* d, float* a, float I[N][D], vector<float> weights[N], int delay_start[N][D], int delay_count[N][D], vector<int>* post_neurons, int* num_post)
-{
-	srand(42);
-
-	/*
-	 * init neuron parameters
-	 */
-	// iterate over neurons
-	for (int i=0; i<N; i++) {
-		//membranes[i] = (float)rand()/float(RAND_MAX)*50.0;
-		membranes[i] = v_reset;
-
-		for (int d=0; d<D; d++)
-		{
-			I[i][d] = 0;//(float)rand()/float(RAND_MAX)*10.0;
-		}
-		u[i] = 0.2*membranes[i];
-		if (i < Ne) {
-			a[i] = 0.02;
-			d[i] = 8.0;
-		}
-		else {
-			a[i] = 0.1;
-			d[i] = 2.0;
-		}
-	}
-
-	/*
-	 * init connectivity
-	 */
-	// iterate over neurons
-	for (int i=0; i<N; i++) {
-		num_post[i] = getrandom(M);
-		int delays[M];
-		vector<int> synapse_numbers[D];
-		vector<int> pst_n;
-		vector<float> wgt_n;
-		// set delay_count and delay_start initially to zero
-		for (int d=0; d<D; d++)
-		{
-			delay_start[i][d] = 0;
-			delay_count[i][d] = 0;
-		}
-		// create values for connectivity
-		for (int m=0; m<num_post[i]; m++)
-		{
-			if (i<Ne)
-				wgt_n.push_back(6.);
-			else
-				wgt_n.push_back(-5.);
-
-			delays[m] = getrandom(D);
-			synapse_numbers[delays[m]].push_back(m);
-			delay_count[i][delays[m]]++;
-
-			pst_n.push_back(getrandom(N));
-
-			while (pst_n.back() == i)
-				pst_n[pst_n.size()-1] = getrandom(N);
-
-			//cout << "Neuron " << i << ": Added post-neuron " << pst_n.back() << " with delay " << delays[m] << endl;
-		}
-		// sort connectivity values according to delay values
-		vector<int> pst_n_sort;
-		vector<float> wgt_n_sort;
-		for (int d=0; d<D; d++)
-		{
-			vector<int>::iterator delay_it = synapse_numbers[d].begin();
-			while (delay_it != synapse_numbers[d].end())
-			{
-				pst_n_sort.push_back(pst_n[*delay_it]);
-				wgt_n_sort.push_back(wgt_n[*delay_it]);
-
-				delay_it++;
-			}
-		}
-
-		// add values to global arrays
-		weights[i] = wgt_n_sort;
-		post_neurons[i] = pst_n_sort;
-
-		int last_delay = 0;
-		for (int d=0; d<D; d++)
-		{
-			if (delay_count[i][d] > 0)
-				delay_start[i][d] = last_delay;
-			else
-				delay_start[i][d] = 0;
-			last_delay += delay_count[i][d];
-		}
-	}
-}
-
 void write_watched_membranes(unsigned int sec, float watched_membrane[num_watched_neurons][1000], float watched_us[num_watched_neurons][1000])
 {
 	ofstream myfile;
@@ -194,11 +101,11 @@ int main()
 	float I[N][D];
 	int delay_pointer = 0;
 	// network parameters
-	int delay_start[N][D];
-	int delay_count[N][D];
+	unsigned int delay_start[N][D];
+	unsigned int delay_count[N][D];
 	vector<float> weights[N];
-	vector<int> post_neurons[N];
-	int num_post[N];
+	vector<unsigned int> post_neurons[N];
+	unsigned int num_post[N];
 	// spike storage
 	unsigned int spikes[int(N*1000*h)];
 	unsigned int k[1000];
@@ -234,7 +141,9 @@ int main()
 		INIT_TIMER(loops)
 		for (unsigned int t=0;t<1000;t++)
 		{
+			/* Step 1
 			// random thalamic input for 1 in 1000 neurons
+			*/
 			for (int j=0;j<N/1000;j++)
 				I[getrandom(N)][delay_pointer] += 20.0;
 			// reset loop
@@ -248,7 +157,9 @@ int main()
 				}
 			}
 
+			/* Step 2
 			// transmit loop
+			*/
 			int last_spike_count;
 			if (t > 0)
 			{
@@ -299,7 +210,9 @@ int main()
 				}
 			}
 
-			// evolve loop
+			/* Step 3
+			// evolve neurons after spike transmission
+			*/
 			for (int i=0; i<N; i++)
 			{
 

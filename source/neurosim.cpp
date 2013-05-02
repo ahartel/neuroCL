@@ -286,14 +286,10 @@ int main()
 	//load_compiled_kernel(&context,&device,"source/kernels/evolve_neuron.ir","evolve_neuron",&evolve_neuron);
 
 	/*
-	 * What we need here:
-	 * Data structures
-	 * - list of neurons of size N
-	 * - list of spikes of size N
-	 * Kernel
-	 * - iterate over all neurons, check v against threshold
-	 * - add event to spike buffer
-	 */
+	 Data structures
+	  - list of neurons of size N
+	  - list of spikes of size N
+	*/
 	size_t local_ws,global_ws;
 	local_ws = 512;
 	global_ws = 512*(int(N/512)+1);
@@ -307,8 +303,21 @@ int main()
 		memory_used += N*sizeof(float);
 	float a[N];
 		memory_used += N*sizeof(float);
-	float I[N];
-		memory_used += N*sizeof(float);
+	float I[N][D];
+		memory_used += D*N*sizeof(float);
+
+	// network parameters
+	unsigned int delay_start[N][D];
+		memory_used += N*D*sizeof(unsigned int);
+	unsigned int delay_count[N][D];
+		memory_used += N*D*sizeof(unsigned int);
+	vector<float> weights[N];
+		memory_used += N*D*sizeof(float);
+	vector<unsigned int> post_neurons[N];
+		memory_used += N*D*sizeof(unsigned int);
+	unsigned int num_post[N];
+		memory_used += N*sizeof(unsigned int);
+
 	size_t spike_array_length = int(N*T*h/10);
 	unsigned int spikes[spike_array_length];
 		memory_used += spike_array_length*sizeof(unsigned int);
@@ -316,15 +325,11 @@ int main()
 		memory_used += T*sizeof(unsigned int);
 	k[0] = 0;
 
-	cout << "Memory used: " << memory_used/1024 << "kB" << endl;
+	cout << "Max. memory usage: " << memory_used/1024 << "kB" << endl;
 
-	init_neurons(membranes,u,d,a,I);
-/*
-	float*** weight_del = new float[N][M][2];
-	bool*** pre_fired = new float[N][M][D];
-	unsigned int** post = new float[N][M];
-	float* exc_input = new float[N];
-*/
+	init_neurons_sparse(membranes,u,d,a,I,weights,delay_start,delay_count,post_neurons,num_post);
+
+	return 0;
 
 	cl_mem cl_membranes = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float)*N, membranes, &error);
 	check_error("setting kernel args",error);
@@ -347,10 +352,10 @@ int main()
 	cl_mem cl_k = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(unsigned int), &(k[0]), &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
-	/*
-	cl_mem cl_weight_del = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(float)*T*M*2, weight_del, &error);
+	cl_mem cl_num_post = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(unsigned int)*N, num_post, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
+	/*
 	cl_mem cl_pre_fired = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(bool)*T*M*N, pre_fired, &error);
 	check_error("setting kernel args",error);
 	assert(error == CL_SUCCESS);
@@ -397,6 +402,9 @@ int main()
 	START_TIMER(kernels)
 	for (unsigned int t=0; t<T; t++)
 	{
+		/* Step 1
+		// random thalamic input for 1 in 1000 neurons
+		*/
 		error = clEnqueueNDRangeKernel(queue, neuron_fired, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL);
 		check_error("enqueueing NDRangeKernel",error);
 		assert(error == CL_SUCCESS);
@@ -405,11 +413,21 @@ int main()
 		assert(error == CL_SUCCESS);
 		//cout << "finished kernel neuron_fired" << endl;
 
+		/* Step 1.5
+		// read number recently detected spikes
+		*/
 		error = clEnqueueReadBuffer(queue, cl_k, CL_TRUE, 0, sizeof(unsigned int), &(k[t]), 0, NULL, NULL);
 		check_error("enqueueing read buffer",error);
 		assert(error == CL_SUCCESS);
 		//cout << "Num spikes after " << t << " ms: " << k[t] << endl;
 
+		/* Step 2
+		// transmit loop
+		*/
+
+		/* Step 3
+		// evolve neurons after spike transmission
+		*/
 		error = clEnqueueNDRangeKernel(queue, evolve_neuron, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL);
 		check_error("enqueueing NDRangeKernel",error);
 		assert(error == CL_SUCCESS);
@@ -418,6 +436,9 @@ int main()
 		assert(error == CL_SUCCESS);
 		//cout << "finished kernel evolve_neuron" << endl;
 
+		/* Step 3.5
+		// read watched membranes
+		*/
 #ifdef WATCH_NEURONS
 		error = clEnqueueReadBuffer(queue, cl_membranes, CL_TRUE, 0, sizeof(float)*N, membranes, 0, NULL, NULL);
 		check_error("enqueueing read buffer",error);
