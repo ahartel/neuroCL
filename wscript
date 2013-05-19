@@ -15,7 +15,7 @@ def build(bld):
 			'source/errorMessage.cpp',
 		]
 	)
-	bld.program(source='source/neurosim.cpp', target='neurosim', use='neuroobj OPENCL')
+	#bld.program(source='source/neurosim.cpp', target='neurosim', use='neuroobj OPENCL')
 	bld.program(source='source/compare/fire_evolve.cpp', target='loop_fire_evolve', use='neuroobj')
 	bld.program(source='source/compare/fire_evolve_sparse.cpp', target='fire_evolve_sparse', use='neuroobj')
 
