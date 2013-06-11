@@ -6,13 +6,12 @@
 
 using namespace std;
 
-void write_watched_membranes(unsigned int sec, float watched_membrane[num_watched_neurons][1000], float watched_us[num_watched_neurons][1000])
+void write_watched_membranes(unsigned int sec, std::vector<std::vector<float> >const& watched_membrane, std::vector<std::vector<float> > const& watched_us)
 {
-	ofstream myfile;
 	if (sec==0)
-		myfile.open("results/membrane_compare.txt");
-	else
-		myfile.open("results/membrane_compare.txt",ios::app);
+		remove( "./results/membrane_compare.txt" );
+
+	ofstream myfile("./results/membrane_compare.txt",ios::app);
 	for (int t=0; t<1000; t++) {
 		myfile << sec*1000+t;
 		for (unsigned int n=0; n < num_watched_neurons; n++)
@@ -29,11 +28,10 @@ void write_watched_membranes(unsigned int sec, float watched_membrane[num_watche
 
 void write_spikes(unsigned int sec, unsigned int* spikes, unsigned int* k)
 {
-	ofstream myfile;
 	if (sec==0)
-		myfile.open("results/spikes_compare_sparse.txt");
-	else
-		myfile.open("results/spikes_compare_sparse.txt",ios::app);
+		remove( "./results/spikes_compare_sparse.txt" );
+
+	ofstream myfile("./results/spikes_compare_sparse.txt",ios::app);
 	for (int t=1; t<1000; t++)
 	{
 		for (unsigned int n=k[t-1]; n < k[t]; n++)
@@ -89,7 +87,7 @@ int main()
 	unsigned int delay_start[N][D];
 	unsigned int delay_start_pre[N][D];
 	unsigned int delay_count[N][D];
-	unsigned int delay_count_pre[N][D];
+	unsigned int delay_count_pre[N][D] {0};
 	vector<float> weights[N];
 	vector<unsigned int> post_neurons[N];
 	vector<unsigned int> pre_neurons[N];
@@ -97,8 +95,8 @@ int main()
 	unsigned int num_pre[N] = {0};
 	// STDP functions
 	float LTP[N][1001+D], LTD[N];
-	vector<float> sd[N];		// matrix of synaptic weights and their derivatives
-	vector<float*> sd_pre[N];		// presynaptic weights
+	vector< vector<float> > sd {N};		// matrix of synaptic weights and their derivatives
+	vector< vector<float*> > sd_pre {N};		// presynaptic weights
 	// spike storage
 	unsigned int spikes[int(N*1000*h)];
 	unsigned int k[1000];
@@ -130,8 +128,8 @@ int main()
 	unsigned int total_spikes = 0;
 
 #ifdef WATCH_NEURONS
-	float watched_membrane[num_watched_neurons][1000];
-	float watched_us[num_watched_neurons][1000];
+	std::vector<std::vector<float> > watched_membrane {num_watched_neurons};
+	std::vector<std::vector<float> > watched_us {num_watched_neurons};
 #endif
 
 	for (unsigned int sec=0; sec<T; sec++)
@@ -266,9 +264,9 @@ int main()
 	#ifdef WATCH_NEURONS
 			for (unsigned int i=0; i < num_watched_neurons; i++)
 			{
-				watched_membrane[i][t] = membranes[neurons_tobe_watched[i]];
+				watched_membrane[i].push_back(membranes[neurons_tobe_watched[i]]);
 	#ifdef WATCH_ADAPTATION
-				watched_us[i][t] = u[neurons_tobe_watched[i]];
+				watched_us[i].push_back(u[neurons_tobe_watched[i]]);
 	#endif
 			}
 	#endif
@@ -310,6 +308,7 @@ int main()
 		total_spikes = 0;
 	} // end of 'second' loop
 	STOP_TIMER("complete", complete)
+
 }
 
 
