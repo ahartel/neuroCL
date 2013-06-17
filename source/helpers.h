@@ -106,6 +106,7 @@ void init_neurons_sparse(
 		num_post[i] = getrandom(M);
 		// create temporary objects for delays, post-synaptic neurons and weights
 		int delays[M];
+		// the array synapse_numbers holds all synapse numbers for a given delay
 		vector<int> synapse_numbers[D];
 		vector<int> pst_n;
 		vector<float> wgt_n;
@@ -136,7 +137,7 @@ void init_neurons_sparse(
 			delays[m] = getrandom(D);
 			synapse_numbers[delays[m]].push_back(m);
 			delay_count[i][delays[m]]++;
-			// pick a post-synaptic neuron
+			// pick a post-synaptic neuron number
 			unsigned int tmp_post = getrandom(N);
 			// make sure the post-syn. neuron is not the pre-syn. neuron
 			while (tmp_post == i)
@@ -151,7 +152,6 @@ void init_neurons_sparse(
 			// of the previously chosen post-synaptic neuron
 			pre_delays[tmp_post][delays[m]].push_back(num_pre[tmp_post]);
 			//pre_delays[tmp_post].push_back(delays[m]);
-			sd_pre[tmp_post].push_back(&sd[i][m]);// pointer to the derivative
 			pre_neurons[tmp_post].push_back(i);
 			++num_pre[tmp_post];
 		}
@@ -165,6 +165,11 @@ void init_neurons_sparse(
 			{
 				pst_n_sort.push_back(pst_n[*delay_it]);
 				wgt_n_sort.push_back(wgt_n[*delay_it]);
+				/*
+				   actually, sd would have to be sorted here, too!
+				   But since it's initialized with zeros anyway,
+				   we can just skip it here
+			    */
 
 				delay_it++;
 			}
@@ -173,7 +178,11 @@ void init_neurons_sparse(
 		// add values to global arrays
 		weights[i] = wgt_n_sort;
 		post_neurons[i] = pst_n_sort;
-
+		/*
+		   The next loop calculates the correct values for
+		   the delay_count and delay_start arrays, according
+		   to Nageswaran et al.
+		*/
 		int last_delay = 0;
 		for (int d=0; d<D; d++)
 		{
@@ -189,6 +198,10 @@ void init_neurons_sparse(
 	for (int i=0; i<N; i++)
 	{
 		cout << "Neuron " << i << endl;
+		// get pointers to the derivatives of the weights
+		for (int m=0; m<num_post[i]; m++)
+			sd_pre[post_neurons[i][m]].push_back(&sd[i][m]);// pointer to the derivative
+
 		// sort connectivity values according to delay values
 		vector<unsigned int> pre_n_sort;
 		cout << "post_neurons: " << post_neurons[i].size() << endl;
