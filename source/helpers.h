@@ -4,10 +4,10 @@
 /*
  * Constants
  */
-const int Ne = 8;//12800;
-const int Ni = 2;//3200;
+const int Ne = 4;//12800;
+const int Ni = 1;//3200;
 const int N = Ne+Ni; // total number of neurons
-const static int M = 2; // number of postsynaptic neurons
+const static int M = 6; // number of postsynaptic neurons
 const float v_thresh = 30./*mV*/;
 const float v_reset = -65/*mV*/;
 const int T = 10; // number of seconds to simulate
@@ -15,12 +15,16 @@ const float h = 1; // timestep in milliseconds
 const static int D = 20; // max. delay in ms
 const float	sm = 10.0;		// maximal synaptic strength
 
+const unsigned int neurons_tobe_watched[] = {0,1,2,3,4};
+const unsigned int num_watched_neurons = 5;
+
 using namespace std;
 
 #define getrandom(max1) ((rand()%(int)((max1)))) // random integer between 0 and max-1
 
 #define TIMING
 #undef WATCH_NEURONS
+#undef WATCH_DERIVATIVES
 #undef WATCH_ADAPTATION
 
 template<typename T>
@@ -48,11 +52,99 @@ void print_loop (T array)
 	print_loop(array,array.size());
 }
 
+void write_derivatives(string filename, unsigned int sec, std::vector<std::vector<float> >const& watched_LTP, std::vector<std::vector<float> > const& watched_LTD)
+{
+	filename = string("./results/")+filename;
+	if (sec==0)
+	{
+		remove( filename.c_str() );
+		ofstream myfile( filename, ios::app);
+		myfile << "Time";
+		for (auto n : neurons_tobe_watched)
+		{
+			myfile << ",Neuron " << n << " LTP";
+			myfile << ",Neuron " << n << " LTD";
+		}
+		myfile << endl;
+		myfile.close();
+	}
+
+	ofstream myfile(filename, ios::app);
+	for (int t=0; t<1000; t++) {
+		myfile << sec*1000+t;
+		for (unsigned int n=0; n < num_watched_neurons; n++)
+		{
+			if (watched_LTP[n][t] > 0)
+				myfile << "," << watched_LTP[n][t];
+			else
+				myfile << ",0.0";
+			if (watched_LTD[n][t] > 0)
+				myfile << "," << watched_LTD[n][t];
+			else
+				myfile << ",0.0";
+		}
+		myfile << endl;
+	}
+	myfile.close();
+}
+
+void write_spikes(string filename, unsigned int sec, unsigned int* spikes, unsigned int* k)
+{
+	filename = string("./results/")+filename;
+	if (sec==0)
+		remove( filename.c_str() );
+
+	ofstream myfile(filename, ios::app);
+	for (int t=1; t<1000; t++)
+	{
+		for (unsigned int n=k[t-1]; n < k[t]; n++)
+		{
+			myfile << sec*1000+t;
+			myfile << "," << spikes[n];
+			myfile << endl;
+		}
+	}
+	myfile.close();
+
+}
+
+void write_watched_membranes(string filename, unsigned int sec, std::vector<std::vector<float> >const& watched_membrane, std::vector<std::vector<float> > const& watched_us)
+{
+	filename = string("./results/")+filename;
+
+	if (sec==0)
+	{
+		remove( filename.c_str() );
+		ofstream myfile(filename,ios::app);
+		myfile << "Time";
+		for (auto n : neurons_tobe_watched)
+		{
+			myfile << ",Neuron " << n;
+		}
+		myfile << endl;
+		myfile.close();
+	}
+
+	ofstream myfile(filename,ios::app);
+	for (int t=0; t<1000; t++) {
+		myfile << sec*1000+t;
+		for (unsigned int n=0; n < num_watched_neurons; n++)
+		{
+			myfile << "," << watched_membrane[n][t];
+#ifdef WATCH_ADAPTATION
+			myfile << "," << watched_us[n][t];
+#endif
+		}
+		myfile << endl;
+	}
+	myfile.close();
+}
+
 void init_neurons_sparse(
-	float* membranes,
-	float* u,
-	float* d,
-	float* a,
+	vector<float> & membranes,
+	vector<float> & u,
+	vector<float> & d,
+	vector<float> & a,
 	float I[N][D],
 	vector<float> weights[N],
 	unsigned int delay_start[N][D],
@@ -82,9 +174,9 @@ void init_neurons_sparse(
 		//membranes[i] = (float)rand()/float(RAND_MAX)*50.0;
 		membranes[i] = v_reset;
 
-		for (int d=0; d<D; d++)
+		for (int del=0; del<D; del++)
 		{
-			I[i][d] = 0;//(float)rand()/float(RAND_MAX)*10.0;
+			I[i][del] = 0;//(float)rand()/float(RAND_MAX)*10.0;
 		}
 		u[i] = 0.2*membranes[i];
 		if (i < Ne) {
@@ -127,7 +219,7 @@ void init_neurons_sparse(
 		{
 			// Initialize weights to fixed values
 			if (i<Ne)
-				wgt_n.push_back(6.);
+				wgt_n.push_back(12.);
 			else
 				wgt_n.push_back(-5.);
 
@@ -151,6 +243,7 @@ void init_neurons_sparse(
 			// add the current neuron to the pre_neuron list
 			// of the previously chosen post-synaptic neuron
 			pre_delays[tmp_post][delays[m]].push_back(num_pre[tmp_post]);
+			delay_count_pre[tmp_post][delays[m]]++;
 			//pre_delays[tmp_post].push_back(delays[m]);
 			pre_neurons[tmp_post].push_back(i);
 			++num_pre[tmp_post];
@@ -239,9 +332,9 @@ void init_neurons(float* membranes, float* u, float* d, float* a, float I[N][D],
 		//membranes[i] = (float)rand()/float(RAND_MAX)*50.0;
 		membranes[i] = v_reset;
 
-		for (int d=0; d<D; d++)
+		for (int del=0; del<D; del++)
 		{
-			I[i][d] = 0;//(float)rand()/float(RAND_MAX)*10.0;
+			I[i][del] = 0;//(float)rand()/float(RAND_MAX)*10.0;
 		}
 		u[i] = 0.2*membranes[i];
 		if (i < Ne) {
@@ -287,6 +380,5 @@ std::chrono::duration_cast<std::chrono::microseconds>( \
 #define STOP_TIMER(name,var)
 #endif
 
-const unsigned int neurons_tobe_watched[] = {0,17};
-const unsigned int num_watched_neurons = 2;
+
 

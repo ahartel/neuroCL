@@ -1,49 +1,12 @@
 #include <stdlib.h>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <vector>
 #include "helpers.h"
 
 using namespace std;
 
-void write_watched_membranes(unsigned int sec, std::vector<std::vector<float> >const& watched_membrane, std::vector<std::vector<float> > const& watched_us)
-{
-	if (sec==0)
-		remove( "./results/membrane_compare.txt" );
-
-	ofstream myfile("./results/membrane_compare.txt",ios::app);
-	for (int t=0; t<1000; t++) {
-		myfile << sec*1000+t;
-		for (unsigned int n=0; n < num_watched_neurons; n++)
-		{
-			myfile << "," << watched_membrane[n][t];
-#ifdef WATCH_ADAPTATION
-			myfile << "," << watched_us[n][t];
-#endif
-		}
-		myfile << endl;
-	}
-	myfile.close();
-}
-
-void write_spikes(unsigned int sec, unsigned int* spikes, unsigned int* k)
-{
-	if (sec==0)
-		remove( "./results/spikes_compare_sparse.txt" );
-
-	ofstream myfile("./results/spikes_compare_sparse.txt",ios::app);
-	for (int t=1; t<1000; t++)
-	{
-		for (unsigned int n=k[t-1]; n < k[t]; n++)
-		{
-			myfile << sec*1000+t;
-			myfile << "," << spikes[n];
-			myfile << endl;
-		}
-	}
-	myfile.close();
-
-}
 
 int get_delays(int delay_start[D],int synapseID)
 {
@@ -76,10 +39,10 @@ int get_delays(int delay_start[D],int synapseID)
 int main()
 {
 	// neuron variables
-	float membranes[N];
-	float u[N];
-	float d[N];
-	float a[N];
+	vector<float> membranes(N,0);
+	vector<float> u(N,0);
+	vector<float> d(N,0);
+	vector<float> a(N,0);
 	// input current
 	float I[N][D];
 	int delay_pointer = 0;
@@ -104,10 +67,11 @@ int main()
 
 	init_neurons_sparse(membranes,u,d,a,I,weights,delay_start,delay_count,post_neurons,num_post,LTP,LTD,sd,sd_pre,num_pre,pre_neurons,delay_start_pre,delay_count_pre);
 
-	if (0)
+	if (1)
 	{
 		for (unsigned int n=0; n<N; n++)
 		{
+			cout << "Neuron " << n << endl;
 			cout << "num_post[" << n << "]: " << num_post[n] << endl;
 			if (num_post[n] > 0)
 			{
@@ -120,6 +84,16 @@ int main()
 				cout << "delay_count[" << n << "]: ";
 				print_loop(delay_count[n],D);
 			}
+			cout << "num_pre[" << n << "]: " << num_pre[n] << endl;
+			if (num_pre[n] > 0)
+			{
+				cout << "pre-neurons: ";
+				print_loop(pre_neurons[n],pre_neurons[n].size());
+				cout << "delay_start_pre[" << n << "]: ";
+				print_loop(delay_start_pre[n],D);
+				cout << "delay_count_pre[" << n << "]: ";
+				print_loop(delay_count_pre[n],D);
+			}
 		}
 		//return 0;
 	}
@@ -128,6 +102,8 @@ int main()
 	unsigned int total_spikes = 0;
 
 #ifdef WATCH_NEURONS
+	std::vector<std::vector<float> > watched_LTP {num_watched_neurons};
+	std::vector<std::vector<float> > watched_LTD {num_watched_neurons};
 	std::vector<std::vector<float> > watched_membrane {num_watched_neurons};
 	std::vector<std::vector<float> > watched_us {num_watched_neurons};
 #endif
@@ -141,7 +117,8 @@ int main()
 			// random thalamic input for 1 in 1000 neurons
 			*/
 			for (int j=0;j<N/1000+1;j++)
-				I[getrandom(N)][delay_pointer] += 20.0;
+				I[2][delay_pointer] += 20.0;
+				//I[getrandom(N)][delay_pointer] += 20.0;
 			// reset loop
 			for (int i=0; i<N; i++)
 			{
@@ -157,31 +134,43 @@ int main()
 					int d = 0;
 					int delay_cnt = 0;
 					// loop through delay values until a used one is found
-					while (delay_count_pre[i][d] == 0 && d < D)
+					while (delay_count_pre[i][d] == 0 && d < D-1)
 					{
-						d++;
+						++d;
 					}
 					// save the number of neurons that use this delay
 					delay_cnt = delay_count_pre[i][d];
 					// check if the loop has run through without result
-					if (d == D-1 && delay_count_pre[i][d] == 0)
+					if (d == D-1 && delay_cnt == 0)
 					{
-						cout << "Neuron " << i;
-						throw "Error: No delays found.";
+						// No problem, neurons may fire without having presynaptic connections
+						cout << "Warning: Neuron " << i << " fired without having any presynaptic connections." << endl;
 					}
-					for (unsigned int j=0; j<num_pre[i]; ++j)
+					else
 					{
-						*sd_pre[i][j] += LTP[pre_neurons[i][j]][t+D-d-1];// this spike was after pre-synaptic spikes
-						// keep track of the number of remaining neurons with current delay
-						// if necessary, increase delay value
-						if (--delay_cnt == 0)
+						for (unsigned int j=0; j<num_pre[i]; ++j)
 						{
-							d++;
-							while (delay_count_pre[i][d] == 0 && d < D)
+							//cout << "Neuron " << i << " pre " << pre_neurons[i][j] << endl;
+							*sd_pre[i][j] += LTP[pre_neurons[i][j]][t+D-d-1];// this spike was after pre-synaptic spikes
+							// keep track of the number of remaining neurons with current delay
+							// if necessary, increase delay value
+							if (--delay_cnt == 0)
 							{
-								d++;
+								++d;
+								while (delay_count_pre[i][d] == 0 && d < D-1)
+								{
+									++d;
+								}
+								if (d<D-1)
+									delay_cnt = delay_count_pre[i][d];
+
+								if (delay_cnt == 0 && j<num_pre[i]-1)
+								{
+									stringstream bla;
+									bla << "Error, in Neuron " << i << ": No more delays left, but there are still pre-synaptic neurons left.";
+									throw bla.str();
+								}
 							}
-							delay_cnt = delay_count_pre[i][d];
 						}
 					}
 				}
@@ -210,36 +199,46 @@ int main()
 				int d = 0;
 				int delay_cnt = 0;
 				// loop through delay values until a used one is found
-				while (delay_count[neuronID][d] == 0 && d < D)
+				while (delay_count[neuronID][d] == 0 && d < D-1)
 				{
-					d++;
+					++d;
 				}
 				// save the number of neurons that use this delay
 				delay_cnt = delay_count[neuronID][d];
 				// check if the loop has run through without result
-				if (d == D-1 && delay_count[neuronID][d] == 0)
+				if (d == D-1 && delay_cnt == 0)
 				{
-					cout << "Neuron " << neuronID;
-					throw "Error: No delays found.";
+					// Neurons may fire without having post-synaptic neurons
 				}
-				// Now, generate the current for all post-syn. neurons
-				for (int m=0; m<num_post[neuronID]; m++)
+				else
 				{
-					unsigned int pst_n = post_neurons[neuronID][m];
-					if (pst_n < Ne) // this spike is before postsynaptic spikes
-						sd[neuronID][m] -= LTD[m];
-
-					I[pst_n][(d+delay_pointer+1)%D] += weights[neuronID][m];
-					// keep track of the number of remaining neurons with current delay
-					// if necessary, increase delay value
-					if (--delay_cnt == 0)
+					// Now, generate the current for all post-syn. neurons
+					for (int m=0; m<num_post[neuronID]; m++)
 					{
-						d++;
-						while (delay_count[neuronID][d] == 0 && d < D)
+						unsigned int pst_n = post_neurons[neuronID][m];
+						if (pst_n < Ne) // this spike is before postsynaptic spikes
+							sd[neuronID][m] -= LTD[m];
+
+						I[pst_n][(d+delay_pointer+1)%D] += weights[neuronID][m];
+						// keep track of the number of remaining neurons with current delay
+						// if necessary, increase delay value
+						if (--delay_cnt == 0)
 						{
-							d++;
+							++d;
+							while (delay_count[neuronID][d] == 0 && d < D-1)
+							{
+								++d;
+							}
+							if (d<D-1)
+								delay_cnt = delay_count[neuronID][d];
+
+							if (delay_cnt == 0 && m<num_post[neuronID]-1)
+							{
+								stringstream bla;
+								bla << "Error, in Neuron " << i << ": No more delays left, but there are still post-synaptic neurons left.";
+								throw bla.str();
+							}
 						}
-						delay_cnt = delay_count[neuronID][d];
 					}
 				}
 			}
@@ -268,6 +267,11 @@ int main()
 	#ifdef WATCH_ADAPTATION
 				watched_us[i].push_back(u[neurons_tobe_watched[i]]);
 	#endif
+	#ifdef WATCH_DERIVATIVES
+				//watched_sd[i][j].push_back(sd[i][j]);
+				watched_LTP[i].push_back(LTP[i][t+D]);
+				watched_LTD[i].push_back(LTD[i]);
+	#endif
 			}
 	#endif
 			k[t] = total_spikes;
@@ -285,24 +289,36 @@ int main()
 			for (unsigned int j=0;j<D+1;j++)
 				LTP[i][j] = LTP[i][1000+j];
 
-			if (i< Ne)
+			if (i< Ne && num_post[i] > 0)
+			{
+				cout << "Neuron " << i << "'s weights: ";
 				for (unsigned int j=0;j<num_post[i];j++)
 				{
 					weights[i][j] += 0.01+sd[i][j];
 					sd[i][j] *= 0.9;
 					if (weights[i][j]>sm) weights[i][j]=sm;
 					if (weights[i][j]<0) weights[i][j]=0.0;
+					cout << " " << weights[i][j];
 				}
+				cout << endl;
+				cout << "Neuron " << i << "'s deerivatives: ";
+				for (unsigned int j=0;j<num_post[i];j++)
+					cout << " " << sd[i][j];
+				cout << endl;
+			}
 		}
 
 		STOP_TIMER("one second loop",loops)
 
 		cout << "Second " << sec << ": found " << total_spikes << endl;
 
-		write_spikes(sec,spikes,k);
+		write_spikes("spikes_compare_sparse.txt",sec,spikes,k);
 
 #ifdef WATCH_NEURONS
-		write_watched_membranes(sec,watched_membrane,watched_us);
+		write_watched_membranes("membrane_compare.txt",sec,watched_membrane,watched_us);
+	#ifdef WATCH_DERIVATIVES
+		write_derivatives("stdp_compare.txt",sec,watched_LTP,watched_LTD);
+	#endif
 #endif
 
 		total_spikes = 0;
