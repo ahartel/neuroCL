@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdexcept>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -32,7 +33,7 @@ int get_delays(int delay_start[D],int synapseID)
 		}
 	}
 
-	throw "Delay not found";
+	throw std::logic_error("Delay not found");
 }
 
 
@@ -44,7 +45,7 @@ int main()
 	vector<float> d(N,0);
 	vector<float> a(N,0);
 	// input current
-	float I[N][D];
+	float I[N][D+1];
 	int delay_pointer = 0;
 	// network parameters
 	unsigned int delay_start[N][D];
@@ -61,7 +62,7 @@ int main()
 	vector< vector<float> > sd {N};		// matrix of synaptic weights and their derivatives
 	vector< vector<float*> > sd_pre {N};		// presynaptic weights
 	// spike storage
-	unsigned int spikes[int(N*1000*h)];
+	vector<unsigned int> spikes(int(N*1000*h),0);
 	unsigned int k[1000];
 	for (unsigned int i=0; i<1000; i++) k[i] = 0;
 
@@ -117,11 +118,11 @@ int main()
 			// random thalamic input for 1 in 1000 neurons
 			*/
 			for (int j=0;j<N/1000+1;j++)
-				I[2][delay_pointer] += 20.0;
-				//I[getrandom(N)][delay_pointer] += 20.0;
+				I[getrandom(N)][delay_pointer] += 20.0;
 			// reset loop
 			for (int i=0; i<N; i++)
 			{
+				// has the neuron fired?
 				if (membranes[i] > v_thresh)
 				{
 					membranes[i] = v_reset;
@@ -130,7 +131,7 @@ int main()
 					LTP[i][t+D]= 0.1;
 					LTD[i]=0.12;
 
-					// get first used delay value
+					// get first used pre-synaptic delay value
 					int d = 0;
 					int delay_cnt = 0;
 					// loop through delay values until a used one is found
@@ -150,6 +151,14 @@ int main()
 					{
 						for (unsigned int j=0; j<num_pre[i]; ++j)
 						{
+							// if delay_cnt is zero there is an error in the delay table
+							if (delay_cnt == 0 && j<num_pre[i]-1)
+							{
+								stringstream bla;
+								bla << "Error, in Neuron " << i << ": No more delays left, but there are still pre-synaptic neurons left.";
+								throw std::logic_error(bla.str());
+							}
+
 							//cout << "Neuron " << i << " pre " << pre_neurons[i][j] << endl;
 							*sd_pre[i][j] += LTP[pre_neurons[i][j]][t+D-d-1];// this spike was after pre-synaptic spikes
 							// keep track of the number of remaining neurons with current delay
@@ -161,15 +170,8 @@ int main()
 								{
 									++d;
 								}
-								if (d<D-1)
+								if (d<D)
 									delay_cnt = delay_count_pre[i][d];
-
-								if (delay_cnt == 0 && j<num_pre[i]-1)
-								{
-									stringstream bla;
-									bla << "Error, in Neuron " << i << ": No more delays left, but there are still pre-synaptic neurons left.";
-									throw bla.str();
-								}
 							}
 						}
 					}
@@ -215,11 +217,17 @@ int main()
 					// Now, generate the current for all post-syn. neurons
 					for (int m=0; m<num_post[neuronID]; m++)
 					{
+						if (delay_cnt == 0 && m<num_post[neuronID]-1)
+						{
+							stringstream bla;
+							bla << "Error, in Neuron " << neuronID << ": No more delays left, but there are still post-synaptic neurons left.";
+							throw std::logic_error(bla.str());
+						}
 						unsigned int pst_n = post_neurons[neuronID][m];
 						if (pst_n < Ne) // this spike is before postsynaptic spikes
 							sd[neuronID][m] -= LTD[m];
 
-						I[pst_n][(d+delay_pointer+1)%D] += weights[neuronID][m];
+						I[pst_n][(d+delay_pointer+1)%(D+1)] += weights[neuronID][m];
 						// keep track of the number of remaining neurons with current delay
 						// if necessary, increase delay value
 						if (--delay_cnt == 0)
@@ -229,15 +237,8 @@ int main()
 							{
 								++d;
 							}
-							if (d<D-1)
+							if (d<D)
 								delay_cnt = delay_count[neuronID][d];
-
-							if (delay_cnt == 0 && m<num_post[neuronID]-1)
-							{
-								stringstream bla;
-								bla << "Error, in Neuron " << i << ": No more delays left, but there are still post-synaptic neurons left.";
-								throw bla.str();
-							}
 						}
 					}
 				}
@@ -279,7 +280,7 @@ int main()
 
 			// jump to next delay entry
 			delay_pointer++;
-			if (delay_pointer == D)
+			if (delay_pointer == D+1)
 				delay_pointer = 0;
 		} // end of millisecond loop
 

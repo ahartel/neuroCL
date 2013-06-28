@@ -3,6 +3,8 @@
 #include <vector>
 /*
  * Constants
+ *
+ * Good values for debugging are Ne=4, Ni=1, M=6
  */
 const int Ne = 4;//12800;
 const int Ni = 1;//3200;
@@ -10,7 +12,7 @@ const int N = Ne+Ni; // total number of neurons
 const static int M = 6; // number of postsynaptic neurons
 const float v_thresh = 30./*mV*/;
 const float v_reset = -65/*mV*/;
-const int T = 10; // number of seconds to simulate
+const int T = 3; // number of seconds to simulate
 const float h = 1; // timestep in milliseconds
 const static int D = 20; // max. delay in ms
 const float	sm = 10.0;		// maximal synaptic strength
@@ -88,7 +90,7 @@ void write_derivatives(string filename, unsigned int sec, std::vector<std::vecto
 	myfile.close();
 }
 
-void write_spikes(string filename, unsigned int sec, unsigned int* spikes, unsigned int* k)
+void write_spikes(string filename, unsigned int sec, vector<unsigned int> const& spikes, unsigned int* k)
 {
 	filename = string("./results/")+filename;
 	if (sec==0)
@@ -145,7 +147,7 @@ void init_neurons_sparse(
 	vector<float> & u,
 	vector<float> & d,
 	vector<float> & a,
-	float I[N][D],
+	float I[N][D+1],
 	vector<float> weights[N],
 	unsigned int delay_start[N][D],
 	unsigned int delay_count[N][D],
@@ -174,7 +176,7 @@ void init_neurons_sparse(
 		//membranes[i] = (float)rand()/float(RAND_MAX)*50.0;
 		membranes[i] = v_reset;
 
-		for (int del=0; del<D; del++)
+		for (int del=0; del<=D; del++)
 		{
 			I[i][del] = 0;//(float)rand()/float(RAND_MAX)*10.0;
 		}
@@ -219,7 +221,7 @@ void init_neurons_sparse(
 		{
 			// Initialize weights to fixed values
 			if (i<Ne)
-				wgt_n.push_back(12.);
+				wgt_n.push_back(6.);
 			else
 				wgt_n.push_back(-5.);
 
