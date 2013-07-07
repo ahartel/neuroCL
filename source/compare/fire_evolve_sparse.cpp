@@ -9,34 +9,6 @@
 using namespace std;
 
 
-int get_delays(int delay_start[D],int synapseID)
-{
-	int last_delay_start = 0;
-	int last_delay = 0;
-	for (int d=0; d<D; d++)
-	{
-		if (delay_start[d] > synapseID && last_delay_start <= synapseID)
-		{
-			cout << "Found delay " << d << " for synapseID " << synapseID << endl;
-			return d;
-		}
-		else if (delay_start[d] <= synapseID && d==D-1)
-		{
-			cout << "Found delay " << d << " for synapseID " << synapseID << endl;
-			return d;
-		}
-
-		if (delay_start[d] > 0)
-		{
-			last_delay_start = delay_start[d];
-			last_delay = d;
-		}
-	}
-
-	throw std::logic_error("Delay not found");
-}
-
-
 int main()
 {
 	// neuron variables
@@ -68,7 +40,7 @@ int main()
 
 	init_neurons_sparse(membranes,u,d,a,I,weights,delay_start,delay_count,post_neurons,num_post,LTP,LTD,sd,sd_pre,num_pre,pre_neurons,delay_start_pre,delay_count_pre);
 
-	if (1)
+#ifdef DEBUG_OUTPUT
 	{
 		for (unsigned int n=0; n<N; n++)
 		{
@@ -98,6 +70,7 @@ int main()
 		}
 		//return 0;
 	}
+#endif
 
 	INIT_TIMER(complete)
 	unsigned int total_spikes = 0;
@@ -292,26 +265,33 @@ int main()
 
 			if (i< Ne && num_post[i] > 0)
 			{
+#ifdef DEBUG_OUTPUT
 				cout << "Neuron " << i << "'s weights: ";
+#endif
 				for (unsigned int j=0;j<num_post[i];j++)
 				{
 					weights[i][j] += 0.01+sd[i][j];
 					sd[i][j] *= 0.9;
 					if (weights[i][j]>sm) weights[i][j]=sm;
 					if (weights[i][j]<0) weights[i][j]=0.0;
+#ifdef DEBUG_OUTPUT
 					cout << " " << weights[i][j];
+#endif
 				}
+#ifdef DEBUG_OUTPUT
 				cout << endl;
 				cout << "Neuron " << i << "'s deerivatives: ";
 				for (unsigned int j=0;j<num_post[i];j++)
 					cout << " " << sd[i][j];
 				cout << endl;
+#endif
 			}
 		}
 
 		STOP_TIMER("one second loop",loops)
 
 		cout << "Second " << sec << ": found " << total_spikes << endl;
+		cout << "Second " << sec << ": firing rate " << total_spikes/N << endl;
 
 		write_spikes("spikes_compare_sparse.txt",sec,spikes,k);
 

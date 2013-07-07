@@ -25,6 +25,7 @@ using namespace std;
 #define getrandom(max1) ((rand()%(int)((max1)))) // random integer between 0 and max-1
 
 #define TIMING
+#undef DEBUG_OUTPUT
 #undef WATCH_NEURONS
 #undef WATCH_DERIVATIVES
 #undef WATCH_ADAPTATION
