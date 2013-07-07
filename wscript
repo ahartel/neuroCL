@@ -8,7 +8,16 @@ def configure(conf):
 	conf.env.CXXFLAGS = ['-std=c++0x','-g']
 	conf.env.INCLUDES = 'source/'
 
+	conf.env.LIB_GL = ['glut','GL','GLU']
+
 def build(bld):
+	bld.program(
+		target='Pong',
+		source='source/Pong/main.cpp',
+		use='GL',
+		cxxflags='-std=c++0x',
+	)
+
 	bld.objects(
 		name = 'neuroobj',
 		source=[
