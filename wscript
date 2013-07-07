@@ -13,6 +13,8 @@ def build(bld):
 		name = 'neuroobj',
 		source=[
 			'source/errorMessage.cpp',
+			'source/compare/network.cpp',
+			'source/helpers.cpp',
 		]
 	)
 	#bld.program(source='source/neurosim.cpp', target='neurosim', use='neuroobj OPENCL')
