@@ -27,6 +27,7 @@ public:
 	Network(std::string const& n);
 	void step();
 	void add_spikes(vector<pre_spike> const&);
+	std::vector<unsigned int> get_last_spikes();
 
 private:
 	int get_delays(int delay_start[D],int synapseID);
@@ -37,6 +38,7 @@ private:
 	unsigned int sec;
 	unsigned int t;
 	unsigned int total_spikes;
+	unsigned int last_total_spikes;
 	int delay_pointer;
 
 	// neuron variables

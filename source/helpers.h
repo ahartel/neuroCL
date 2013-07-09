@@ -1,6 +1,7 @@
 #pragma once
 #include <stdlib.h>
 #include <vector>
+#include <iostream>
 #include <string>
 
 using namespace std;
@@ -34,10 +35,29 @@ const unsigned int num_watched_neurons = 5;
 #undef WATCH_ADAPTATION
 
 template<typename T>
-void print_loop (T array, size_t size);
+void print_loop (T array, size_t size)
+{
+	if (size > 0)
+	{
+		if (array[0] < 10)
+			cout << 0;
+		cout << array[0];
+		for (unsigned int i=1; i<size; i++)
+		{
+			cout << ", ";
+			if (array[i] < 10)
+				cout << 0;
+			cout << array[i];
+		}
+	}
+	cout << endl;
+}
 
 template<typename T>
-void print_loop (T array);
+void print_loop (T array)
+{
+	print_loop(array,array.size());
+}
 
 void write_derivatives(string filename, unsigned int sec, std::vector<std::vector<float> >const& watched_LTP, std::vector<std::vector<float> > const& watched_LTD);
 

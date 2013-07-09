@@ -8,6 +8,22 @@
 
 using namespace std;
 
+std::vector<unsigned int> Network::get_last_spikes()
+{
+	if (total_spikes > last_total_spikes)
+	{
+		std::vector<unsigned int> return_vec(total_spikes-last_total_spikes);
+		std::vector<unsigned int>::iterator it = spikes.end();
+		it = it-(total_spikes-last_total_spikes);
+
+		last_total_spikes = total_spikes;
+
+		copy(it,spikes.end(),return_vec.begin());
+		return return_vec;
+	}
+	else
+		return std::vector<unsigned int>();
+}
 
 int Network::get_delays(int delay_start[D],int synapseID)
 {
@@ -56,7 +72,6 @@ Network::Network() :
 	u(N,0),
 	d(N,0),
 	a(N,0),
-	spikes(int(N*1000*h),0),
 	sd{N},
 	sd_pre{N}
 {
@@ -70,7 +85,6 @@ Network::Network(std::string const& n) :
 	u(N,0),
 	d(N,0),
 	a(N,0),
-	spikes(int(N*1000*h),0),
 	sd{N},
 	sd_pre{N}
 {
@@ -118,6 +132,7 @@ void Network::init()
 #endif
 
 	INIT_TIMER(complete)
+	last_total_spikes = 0;
 	total_spikes = 0;
 	sec = 0;
 	t = 0;
@@ -150,7 +165,8 @@ void Network::step()
 				{
 					membranes[i] = v_reset;
 					u[i] += d[i];
-					spikes[total_spikes++] = i;
+					spikes.push_back(i);
+					++total_spikes;
 					LTP[i][t+D]= 0.1;
 					LTD[i]=0.12;
 

@@ -92,6 +92,41 @@ void updateNeurons()
 
 	network.add_spikes(spikes);
 	network.step();
+	int direction = 0;
+	std::vector<unsigned int> get_spikes = network.get_last_spikes();
+	cout << get_spikes.size() << endl;
+	if (!get_spikes.empty())
+	{
+		for (auto sp : get_spikes)
+		{
+			if (sp>=790 && sp<800)
+				direction += 1;
+			else if (sp>=780 && sp<790)
+				direction -= 1;
+		}
+	}
+	cout << direction << endl;
+	/*
+	bool flip = rand()%2;
+	if (flip)
+	{
+		bool up = rand()%2;
+		if (up)
+			direction += 1;
+		else
+			direction += 1;
+	}
+	*/
+	if (direction > 0)
+	{
+		p2speed = pspeed*p2speedup;
+		p2speedup *= 0.9;
+	}
+	else if (direction < 0)
+	{
+		p2speed = -pspeed*p2speedup;
+		p2speedup *= 0.9;
+	}
 }
 
 
@@ -247,6 +282,7 @@ void keyPress(unsigned char key, int x, int y)
 *********************************************/
 void specialKeyPress(int key, int x, int y)
 {
+	if (curTime < 10000)
      switch (key) 
      {
             case GLUT_KEY_UP:
@@ -258,6 +294,7 @@ void specialKeyPress(int key, int x, int y)
 				p2speedup *= 0.9;
                  break;
      }
+
 }
 
 /*********************************************
