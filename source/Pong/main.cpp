@@ -22,9 +22,13 @@ const int Height = 500;
 
 float p1 = 220;
 float p2 = 220;
+float p1speed = 0;
+float p1speedup = 3;
+float p2speed = 0;
+float p2speedup = 3;
 // GLfloat player1[4][2] = { 10, p1, 10, p1+paddleHeight, 10+paddleWidth, p1+paddleHeight, 10+paddleWidth, p1 };
 // GLfloat player2[4][2] = { 480, p2, 480, p2+paddleHeight, 480+paddleWidth, p2+paddleHeight, 480+paddleWidth, p2 };
-const float pspeed = 10;
+const float pspeed = 7;
 
 int score[2];// = {0, 0}; // Score for players 1 and 2
 
@@ -33,7 +37,7 @@ GLdouble bpos[2] = {235,235};
 GLfloat bvx = 1; // ball vector in left-right axis
 GLfloat bvy = 1; // ball vector in top-bottom axis
 // GLfloat ball[4][2] = { pos[0], pos[1], pos[0], pos[1]+bsize, pos[0]+bsize, pos[1]+bsize, pos[0]+bsize, pos[1] };
-float bspeed = 2;
+float bspeed = 3;
 
 // Time variables for the speed calculation of the objects
 GLdouble time;
@@ -116,6 +120,33 @@ void update()
      // In that way the object speed is always the same.
      bpos[0] += bspeed * bvx * runtime;
      bpos[1] += bspeed * bvy * runtime;
+
+	 // Player 1
+	 if (p1speed > 0.1 || p1speed < -0.1)
+	 {
+		 if(420>=p1+p1speed && 0<=p1+p1speed)
+		 {
+			 p1 += p1speed;
+			 p1speed = p1speed * 0.8;
+		 }
+	 }
+	 else
+		 p1speed = 0;
+	 if (p1speedup <= 1.8)
+		 p1speedup += 0.2;
+	 // Player 2
+	 if (p2speed > 0.1 || p2speed < -0.1)
+	 {
+		 if(420>=p2+p2speed && 0<=p2+p2speed)
+		 {
+			 p2 += p2speed;
+			 p2speed = p2speed * 0.8;
+		 }
+	 }
+	 else
+		 p2speed = 0;
+	 if (p2speedup <= 1.8)
+		 p2speedup += 0.2;
 }
 
 /*********************************************
@@ -146,13 +177,14 @@ void keyPress(unsigned char key, int x, int y)
     {
         case 'w':
         case 'W':
-             if(420>=p1+pspeed)
-                      {p1 += pspeed;}
+				p1speed = pspeed*p1speedup;
+				p1speedup *= 0.9;
+
              break;
         case 's':
         case 'S':
-             if(0<=p1-pspeed)
-                      {p1 -= pspeed;}
+				p1speed = -pspeed*p1speedup;
+				p1speedup *= 0.9;
              break;
         case 27 :
              exit(0);
@@ -169,12 +201,12 @@ void specialKeyPress(int key, int x, int y)
      switch (key) 
      {
             case GLUT_KEY_UP:
-                 if(420>=p2+pspeed)
-                      {p2 += pspeed;}
+				p2speed = pspeed*p2speedup;
+				p2speedup *= 0.9;
                  break;
             case GLUT_KEY_DOWN:
-                 if(0<=p2-pspeed)
-                      {p2 -= pspeed;}
+				p2speed = -pspeed*p2speedup;
+				p2speedup *= 0.9;
                  break;
      }
 }
