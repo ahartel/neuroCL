@@ -10,34 +10,57 @@ using namespace std;
 
 std::vector<unsigned int> Network::get_last_spikes()
 {
-	cout << "Sec : " << sec << endl;
-	cout << "last Sec : " << last_sec << endl;
-	cout << "milli : " << t << endl;
-	cout << "spikes: " << k[t-1] << endl;
-	cout << "last spikes: " << k[t-2] << endl;
-	if (sec > last_sec || sec == 0)
-	{
-		if (k[0] > 0)
-		{
-			std::vector<unsigned int> return_vec(k[0]);
-			std::vector<unsigned int>::iterator it = spikes.end();
-			it = it-(k[0]);
+	//cout << "Sec : " << sec << endl;
+	//cout << "last Sec : " << last_sec << endl;
+	//cout << "milli : " << t << endl;
+	//if (t>0)
+	//	cout << "spikes: " << k[t-1] << endl;
+	//if (t>1)
+	//	cout << "last spikes: " << k[t-2] << endl;
 
-			copy(it,spikes.end(),return_vec.begin());
-			return return_vec;
+	//for (size_t ii=0;ii<k[t-1];ii++)
+	//	cout << spikes[ii] << ",";
+	//cout << endl;
+
+	if (t==0)
+	{
+		if (sec == 0)
+		{
+			return std::vector<unsigned int>();
 		}
 		else
-			return std::vector<unsigned int>();
+		{
+			if (k[999] > k[998])
+			{
+				std::vector<unsigned int> return_vec(k[999]-k[998]);
+				std::vector<unsigned int>::iterator it_start = spikes.begin();
+				std::vector<unsigned int>::iterator it_end = spikes.begin();
+				it_start = it_start+(k[998]);
+				it_end = it_end+(k[999]);
+
+				copy(it_start,it_end,return_vec.begin());
+				return return_vec;
+			}
+			else
+				return std::vector<unsigned int>();
+		}
+	}
+	else if (t==1)
+	{
+		std::vector<unsigned int> return_vec(k[0]);
+		copy(spikes.begin(),spikes.begin()+k[0],return_vec.begin());
+		return return_vec;
 	}
 	else
 	{
 		if (k[t-1] > k[t-2])
 		{
-			std::vector<unsigned int> return_vec(k[t-1]-k[t-2]);
-			std::vector<unsigned int>::iterator it = spikes.end();
-			it = it-(k[t-1]-k[t-2]);
+			std::vector<unsigned int>::iterator it_start = spikes.begin();
+			std::vector<unsigned int>::iterator it_end = spikes.begin();
+			it_start = it_start+(k[t-2]);
+			it_end = it_end+(k[t-1]);
+			std::vector<unsigned int> return_vec(it_start,it_end);
 
-			copy(it,spikes.end(),return_vec.begin());
 			return return_vec;
 		}
 		else

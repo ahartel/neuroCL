@@ -95,16 +95,29 @@ void updateNeurons()
 	int direction = 0;
 	std::vector<unsigned int> get_spikes = network.get_last_spikes();
 
+	//unsigned int up_spikes =0;
+	//unsigned int down_spikes =0;
+
 	if (!get_spikes.empty())
 	{
 		for (auto sp : get_spikes)
 		{
+			//cout << sp << ",";
 			if (sp>=790 && sp<800)
+			{
+				//++up_spikes;
 				direction += 1;
+			}
 			else if (sp>=780 && sp<790)
+			{
+				//++down_spikes;
 				direction -= 1;
+			}
 		}
+		//cout << endl;
 	}
+
+	//cout << "up: " << up_spikes << "\tdown: " << down_spikes << endl;
 
 	/*
 	bool flip = rand()%2;
