@@ -6,6 +6,7 @@
 
 #include <GL/freeglut.h>	// OpenGL toolkit
 #include <stdio.h>
+#include "compare/network.h"
 
 // Function Initialising
 void drawRect(GLfloat, GLfloat, int, int, float, float, float);
@@ -15,13 +16,20 @@ void update();
 const int Width = 500;
 const int Height = 500;
 
+// Neurons
+Network network;
+//bool neurons[Height];
+
 // Dimensions
 #define paddleHeight 80
 #define paddleWidth 10
 #define zAxis 0
 
+// lower y-values of paddles
 float p1 = 220;
 float p2 = 220;
+float p2_old;
+// paddle speeds
 float p1speed = 0;
 float p1speedup = 3;
 float p2speed = 0;
@@ -33,6 +41,7 @@ const float pspeed = 7;
 int score[2];// = {0, 0}; // Score for players 1 and 2
 
 #define bsize 10
+GLdouble bpos_old;
 GLdouble bpos[2] = {235,235};
 GLfloat bvx = 1; // ball vector in left-right axis
 GLfloat bvy = 1; // ball vector in top-bottom axis
@@ -40,7 +49,7 @@ GLfloat bvy = 1; // ball vector in top-bottom axis
 float bspeed = 3;
 
 // Time variables for the speed calculation of the objects
-GLdouble time;
+GLdouble curTime;
 GLdouble prtime;
 GLdouble timeDiff;
 GLdouble runtime;
@@ -49,6 +58,42 @@ GLdouble runtime;
 static char str[200];
 void * font = GLUT_BITMAP_9_BY_15;
 
+/*********************************************
+    Neuron connections
+*********************************************/
+void updateNeurons()
+{
+	std::vector<pre_spike> spikes;
+
+//	for (size_t ii=0;ii<Height; ++ii)
+//		neurons[ii] = 0;
+
+	if (p2_old > p2)
+		for (size_t ii=p2/2;ii<p2_old/2; ++ii)
+			spikes.push_back(pre_spike(ii,0,10));
+			//neurons[ii] = 1;
+	else
+		for (size_t ii=p2_old/2;ii<p2/2; ++ii)
+			spikes.push_back(pre_spike(ii,0,10));
+			//neurons[ii] = 1;
+
+	if (bpos_old > bpos[1])
+		for (size_t ii=bpos[1]/2;ii<bpos_old/2; ++ii)
+			spikes.push_back(pre_spike(ii+250,0,10));
+			//neurons[ii+250] = 1;
+	else
+		for (size_t ii=bpos_old/2;ii<bpos[1]/2; ++ii)
+			spikes.push_back(pre_spike(ii+250,0,10));
+			//neurons[ii+250] = 1;
+
+	//spikes
+	//for (size_t ii=0;ii<Height; ++ii)
+	//{
+
+	network.add_spikes(spikes);
+	network.step();
+}
+
 
 /*********************************************
     Drawing
@@ -56,9 +101,9 @@ void * font = GLUT_BITMAP_9_BY_15;
 void renderScene(void)
 {
      // Elapsed time from the initiation of the game.
-     time = glutGet(GLUT_ELAPSED_TIME);
-     timeDiff = time - prtime; // Elapsed time from the previous frame.
-     prtime = time;
+     curTime = glutGet(GLUT_ELAPSED_TIME);
+     timeDiff = curTime - prtime; // Elapsed time from the previous frame.
+     prtime = curTime;
      runtime = timeDiff / 10.0;
      
      update(); // Update the game.
@@ -84,6 +129,7 @@ void renderScene(void)
 *********************************************/
 void update()
 {
+	 bpos_old = bpos[1];
      // Ball collision with the border of the window.
      if(bpos[0] + bspeed > 500-bsize)
      {
@@ -135,6 +181,7 @@ void update()
 	 if (p1speedup <= 1.8)
 		 p1speedup += 0.2;
 	 // Player 2
+	 p2_old = p2;
 	 if (p2speed > 0.1 || p2speed < -0.1)
 	 {
 		 if(420>=p2+p2speed && 0<=p2+p2speed)
@@ -147,6 +194,8 @@ void update()
 		 p2speed = 0;
 	 if (p2speedup <= 1.8)
 		 p2speedup += 0.2;
+
+	 updateNeurons();
 }
 
 /*********************************************
@@ -223,7 +272,7 @@ void init(void)
      gluOrtho2D(0,500,0,500);
      
      // Initialize time.
-     prtime = time = glutGet(GLUT_ELAPSED_TIME);   
+     prtime = curTime = glutGet(GLUT_ELAPSED_TIME);   
      
      // Initialize score.
      score[0] = score[1] = 0;

@@ -4,7 +4,6 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
-#include "helpers.h"
 #include "network.h"
 
 using namespace std;
@@ -51,6 +50,7 @@ void Network::add_spikes(vector<pre_spike> const& pre_spikes)
 }
 
 Network::Network() :
+	name("default_name"),
 	delay_pointer(0),
 	membranes(N,0),
 	u(N,0),
@@ -59,6 +59,25 @@ Network::Network() :
 	spikes(int(N*1000*h),0),
 	sd{N},
 	sd_pre{N}
+{
+	init();
+}
+
+Network::Network(std::string const& n) :
+	name(n),
+	delay_pointer(0),
+	membranes(N,0),
+	u(N,0),
+	d(N,0),
+	a(N,0),
+	spikes(int(N*1000*h),0),
+	sd{N},
+	sd_pre{N}
+{
+	init();
+}
+
+void Network::init()
 {
 	delay_pointer = 0;
 	// spike storage
@@ -328,12 +347,12 @@ void Network::step()
 		cout << "Second " << sec << ": found " << total_spikes << endl;
 		cout << "Second " << sec << ": firing rate " << total_spikes/N << endl;
 
-		write_spikes("spikes_compare_sparse.txt",sec,spikes,k);
+		write_spikes("spikes_"+name+".txt",sec,spikes,k);
 
 #ifdef WATCH_NEURONS
-		write_watched_membranes("membrane_compare.txt",sec,watched_membrane,watched_us);
+		write_watched_membranes("membrane_"+name+".txt",sec,watched_membrane,watched_us);
 	#ifdef WATCH_DERIVATIVES
-		write_derivatives("stdp_compare.txt",sec,watched_LTP,watched_LTD);
+		write_derivatives("stdp_"+name+".txt",sec,watched_LTP,watched_LTD);
 	#endif
 #endif
 

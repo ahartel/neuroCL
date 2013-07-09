@@ -14,7 +14,8 @@ def build(bld):
 	bld.program(
 		target='Pong',
 		source='source/Pong/main.cpp',
-		use='GL',
+		use=['GL','neuroobj'],
+        includes='source',
 		cxxflags='-std=c++0x',
 	)
 

@@ -1,10 +1,22 @@
 #pragma once
+#include <string>
+#include "helpers.h"
+#include <vector>
+
+using namespace std;
 
 struct pre_spike
 {
 	unsigned int neuron;
 	unsigned int delay;
 	unsigned int weight;
+
+	pre_spike(unsigned int n, unsigned int d, unsigned int w)
+	{
+		neuron = n;
+		delay = d;
+		weight = w;
+	};
 };
 
 class Network
@@ -12,11 +24,15 @@ class Network
 
 public:
 	Network();
+	Network(std::string const& n);
 	void step();
 	void add_spikes(vector<pre_spike> const&);
 
 private:
 	int get_delays(int delay_start[D],int synapseID);
+	void init();
+
+	string name;
 
 	unsigned int sec;
 	unsigned int t;
