@@ -94,7 +94,7 @@ void updateNeurons()
 	network.step();
 	int direction = 0;
 	std::vector<unsigned int> get_spikes = network.get_last_spikes();
-	cout << get_spikes.size() << endl;
+
 	if (!get_spikes.empty())
 	{
 		for (auto sp : get_spikes)
@@ -105,7 +105,7 @@ void updateNeurons()
 				direction -= 1;
 		}
 	}
-	cout << direction << endl;
+
 	/*
 	bool flip = rand()%2;
 	if (flip)

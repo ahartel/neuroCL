@@ -10,19 +10,39 @@ using namespace std;
 
 std::vector<unsigned int> Network::get_last_spikes()
 {
-	if (total_spikes > last_total_spikes)
+	cout << "Sec : " << sec << endl;
+	cout << "last Sec : " << last_sec << endl;
+	cout << "milli : " << t << endl;
+	cout << "spikes: " << k[t-1] << endl;
+	cout << "last spikes: " << k[t-2] << endl;
+	if (sec > last_sec || sec == 0)
 	{
-		std::vector<unsigned int> return_vec(total_spikes-last_total_spikes);
-		std::vector<unsigned int>::iterator it = spikes.end();
-		it = it-(total_spikes-last_total_spikes);
+		if (k[0] > 0)
+		{
+			std::vector<unsigned int> return_vec(k[0]);
+			std::vector<unsigned int>::iterator it = spikes.end();
+			it = it-(k[0]);
 
-		last_total_spikes = total_spikes;
-
-		copy(it,spikes.end(),return_vec.begin());
-		return return_vec;
+			copy(it,spikes.end(),return_vec.begin());
+			return return_vec;
+		}
+		else
+			return std::vector<unsigned int>();
 	}
 	else
-		return std::vector<unsigned int>();
+	{
+		if (k[t-1] > k[t-2])
+		{
+			std::vector<unsigned int> return_vec(k[t-1]-k[t-2]);
+			std::vector<unsigned int>::iterator it = spikes.end();
+			it = it-(k[t-1]-k[t-2]);
+
+			copy(it,spikes.end(),return_vec.begin());
+			return return_vec;
+		}
+		else
+			return std::vector<unsigned int>();
+	}
 }
 
 int Network::get_delays(int delay_start[D],int synapseID)
@@ -73,7 +93,8 @@ Network::Network() :
 	d(N,0),
 	a(N,0),
 	sd{N},
-	sd_pre{N}
+	sd_pre{N},
+	spikes(1000*N)
 {
 	init();
 }
@@ -86,7 +107,8 @@ Network::Network(std::string const& n) :
 	d(N,0),
 	a(N,0),
 	sd{N},
-	sd_pre{N}
+	sd_pre{N},
+	spikes(1000*N)
 {
 	init();
 }
@@ -135,6 +157,7 @@ void Network::init()
 	last_total_spikes = 0;
 	total_spikes = 0;
 	sec = 0;
+	last_sec = 0;
 	t = 0;
 
 #ifdef WATCH_NEURONS
@@ -165,8 +188,8 @@ void Network::step()
 				{
 					membranes[i] = v_reset;
 					u[i] += d[i];
-					spikes.push_back(i);
-					++total_spikes;
+					spikes[k[t]++] = i;
+					total_spikes = k[t];
 					LTP[i][t+D]= 0.1;
 					LTD[i]=0.12;
 
@@ -314,8 +337,6 @@ void Network::step()
 	#endif
 			}
 	#endif
-			k[t] = total_spikes;
-			//cout << "Num spikes after " << t << " ms: " << k[t] << endl;
 
 			// jump to next delay entry
 			delay_pointer++;
@@ -326,56 +347,62 @@ void Network::step()
 		++t;
 
 
-	if (t==1000)
-	{
-		for (unsigned int i=0;i<N;i++)		// prepare for the next sec
+		if (t==1000)
 		{
-			for (unsigned int j=0;j<D+1;j++)
-				LTP[i][j] = LTP[i][1000+j];
-
-			if (i< Ne && num_post[i] > 0)
+			for (unsigned int i=0;i<N;i++)		// prepare for the next sec
 			{
-#ifdef DEBUG_OUTPUT
-				cout << "Neuron " << i << "'s weights: ";
-#endif
-				for (unsigned int j=0;j<num_post[i];j++)
+				for (unsigned int j=0;j<D+1;j++)
+					LTP[i][j] = LTP[i][1000+j];
+
+				if (i< Ne && num_post[i] > 0)
 				{
-					weights[i][j] += 0.01+sd[i][j];
-					sd[i][j] *= 0.9;
-					if (weights[i][j]>sm) weights[i][j]=sm;
-					if (weights[i][j]<0) weights[i][j]=0.0;
 #ifdef DEBUG_OUTPUT
-					cout << " " << weights[i][j];
+					cout << "Neuron " << i << "'s weights: ";
+#endif
+					for (unsigned int j=0;j<num_post[i];j++)
+					{
+						weights[i][j] += 0.01+sd[i][j];
+						sd[i][j] *= 0.9;
+						if (weights[i][j]>sm) weights[i][j]=sm;
+						if (weights[i][j]<0) weights[i][j]=0.0;
+#ifdef DEBUG_OUTPUT
+						cout << " " << weights[i][j];
+#endif
+					}
+#ifdef DEBUG_OUTPUT
+					cout << endl;
+					cout << "Neuron " << i << "'s deerivatives: ";
+					for (unsigned int j=0;j<num_post[i];j++)
+						cout << " " << sd[i][j];
+					cout << endl;
 #endif
 				}
-#ifdef DEBUG_OUTPUT
-				cout << endl;
-				cout << "Neuron " << i << "'s deerivatives: ";
-				for (unsigned int j=0;j<num_post[i];j++)
-					cout << " " << sd[i][j];
-				cout << endl;
-#endif
 			}
-		}
 
-		//STOP_TIMER("one second loop",loops)
+			//STOP_TIMER("one second loop",loops)
 
-		cout << "Second " << sec << ": found " << total_spikes << endl;
-		cout << "Second " << sec << ": firing rate " << total_spikes/N << endl;
+			cout << "Second " << sec << ": found " << total_spikes << endl;
+			cout << "Second " << sec << ": firing rate " << total_spikes/N << endl;
 
-		write_spikes("spikes_"+name+".txt",sec,spikes,k);
+			write_spikes("spikes_"+name+".txt",sec,spikes,k);
 
 #ifdef WATCH_NEURONS
-		write_watched_membranes("membrane_"+name+".txt",sec,watched_membrane,watched_us);
-	#ifdef WATCH_DERIVATIVES
-		write_derivatives("stdp_"+name+".txt",sec,watched_LTP,watched_LTD);
-	#endif
+			write_watched_membranes("membrane_"+name+".txt",sec,watched_membrane,watched_us);
+		#ifdef WATCH_DERIVATIVES
+			write_derivatives("stdp_"+name+".txt",sec,watched_LTP,watched_LTD);
+		#endif
 #endif
 
-		total_spikes = 0;
-		t = 0;
-		++sec;
-	} // end of 'second' loop
+			total_spikes = 0;
+			k[0] = 0;
+			t = 0;
+			last_sec = sec++;
+		}
+		else
+		{
+			k[t] = k[t-1];
+		}
+		// end of 'second' loop
 	//STOP_TIMER("complete", complete)
 
 }

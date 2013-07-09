@@ -36,6 +36,7 @@ private:
 	string name;
 
 	unsigned int sec;
+	unsigned int last_sec;
 	unsigned int t;
 	unsigned int total_spikes;
 	unsigned int last_total_spikes;
