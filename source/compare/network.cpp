@@ -201,6 +201,12 @@ void Network::init()
 
 void Network::step()
 {
+	DA *= 0.95;
+	for (unsigned int i=0;i<N;i++)		// prepare for the next sec
+		if (i< Ne && num_post[i] > 0)
+			for (unsigned int j=0;j<num_post[i];j++)
+				sd[i][j] *= 0.9;
+
 	//for (unsigned int sec=0; sec<T; sec++)
 	//{
 		//INIT_TIMER(loops)
@@ -377,15 +383,11 @@ void Network::step()
 
 		++t;
 
-
-		if (t==1000)
+		if (t%10==0 && DA > 1e-4)
 		{
 			cout << "DA level :" << DA << endl;
 			for (unsigned int i=0;i<N;i++)		// prepare for the next sec
 			{
-				for (unsigned int j=0;j<D+1;j++)
-					LTP[i][j] = LTP[i][1000+j];
-
 				if (i< Ne && num_post[i] > 0)
 				{
 #ifdef DEBUG_OUTPUT
@@ -394,7 +396,6 @@ void Network::step()
 					for (unsigned int j=0;j<num_post[i];j++)
 					{
 						weights[i][j] += DA*(0.01+sd[i][j]);
-						sd[i][j] *= 0.9;
 						if (weights[i][j]>sm) weights[i][j]=sm;
 						if (weights[i][j]<0) weights[i][j]=0.0;
 #ifdef DEBUG_OUTPUT
@@ -410,6 +411,16 @@ void Network::step()
 #endif
 				}
 			}
+		}
+
+		if (t==1000)
+		{
+			for (unsigned int i=0;i<N;i++)		// prepare for the next sec
+			{
+				for (unsigned int j=0;j<D+1;j++)
+					LTP[i][j] = LTP[i][1000+j];
+			}
+
 
 			//STOP_TIMER("one second loop",loops)
 
@@ -434,7 +445,6 @@ void Network::step()
 		{
 			k[t] = k[t-1];
 		}
-		DA *= 0.99;
 		// end of 'second' loop
 	//STOP_TIMER("complete", complete)
 

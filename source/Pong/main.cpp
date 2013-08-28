@@ -186,7 +186,7 @@ void write_performance()
 {
 	cout << "Writing performance" << endl;
 	ofstream myfile( "performance.txt", ios::app);
-	myfile << float(good)/float(baad) << "\n";
+	myfile << float(good)/float(baad+good) << "\n";
 	myfile.close();
 
 	good = 0;
