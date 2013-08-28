@@ -7,6 +7,9 @@
 #include <GL/freeglut.h>	// OpenGL toolkit
 #include <stdio.h>
 #include "compare/network.h"
+#include <fstream>
+
+using namespace std;
 
 // Function Initialising
 void drawRect(GLfloat, GLfloat, int, int, float, float, float);
@@ -58,6 +61,10 @@ GLdouble runtime;
 static char str[200];
 void * font = GLUT_BITMAP_9_BY_15;
 
+// performance measurement
+unsigned int good = 0;
+unsigned int baad = 0;
+
 /*********************************************
     Neuron connections
 *********************************************/
@@ -67,7 +74,7 @@ void updateNeurons(bool collision)
 
 //	for (size_t ii=0;ii<Height; ++ii)
 //		neurons[ii] = 0;
-
+/*
 	if (p2_old > p2)
 		for (size_t ii=p2/2;ii<p2_old/2; ++ii)
 			spikes.push_back(pre_spike(ii+500,0,10));
@@ -88,6 +95,11 @@ void updateNeurons(bool collision)
 	else
 		for (size_t ii=bpos_old[1]/2;ii<bpos[1]/2; ++ii)
 			spikes.push_back(pre_spike(ii+250,0,10));
+*/
+
+	spikes.push_back(pre_spike(bpos[0]/2,0,10));
+	spikes.push_back(pre_spike(bpos[1]/2+250,0,10));
+	spikes.push_back(pre_spike(p2/2+500,0,10));
 
 
 	unsigned int sec_790 =0;
@@ -116,9 +128,9 @@ void updateNeurons(bool collision)
 	{
 		for (auto sp : first_spikes)
 		{
-			if (sp>=770 && sp<780)
+			if (sp>=770 && sp<772)
 				fir_790 += 1;
-			else if (sp>=780 && sp<790)
+			else if (sp>=780 && sp<782)
 				fir_791 += 1;
 		}
 	}
@@ -170,6 +182,16 @@ void updateNeurons(bool collision)
 
 }
 
+void write_performance()
+{
+	cout << "Writing performance" << endl;
+	ofstream myfile( "performance.txt", ios::app);
+	myfile << float(good)/float(baad) << "\n";
+	myfile.close();
+
+	good = 0;
+	baad = 0;
+}
 
 /*********************************************
     Drawing
@@ -214,6 +236,7 @@ void update()
      {
           bvx = -1;
           score[0]++;
+		  baad += 1;
      }
      else if (bpos[0] - bspeed < 0)
      {
@@ -237,6 +260,7 @@ void update()
      {
           bvx *= -1;
           right_collision = 1;
+		  good += 1;
           // bspeed *= 1.01;
      }
      
@@ -244,8 +268,8 @@ void update()
      // Because frame rate isn't always the same that might affect objects speed.
      // That's why we multiply the frame speed and multiply it with the object speed.
      // In that way the object speed is always the same.
-     bpos[0] += bspeed * bvx * runtime;
-     bpos[1] += bspeed * bvy * runtime;
+     bpos[0] += bspeed * bvx;// * runtime;
+     bpos[1] += bspeed * bvy;// * runtime;
 
 	 // Player 1
 	 if (p1speed > 0.1 || p1speed < -0.1)
@@ -275,8 +299,15 @@ void update()
 	 if (p2speedup <= 1.8)
 		 p2speedup += 0.2;
 
+	 // killer KI
+	 p1 = bpos[1];
+
 	 updateNeurons(right_collision);
+
+	 if (good + baad == 20)
+		 write_performance();
 }
+
 
 /*********************************************
     Create and draw a rectangle.
@@ -366,7 +397,8 @@ int main(int argc, char *argv[])
     // Initialize openGL with Double buffer and RGB color without transparency.
     // Its interesting to try GLUT_SINGLE instead of GLUT_DOUBLE.
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    //glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitDisplayMode( GLUT_RGB);
 
     // Create the window.
     glutInitWindowSize(Width, Height);
