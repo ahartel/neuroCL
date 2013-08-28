@@ -28,6 +28,7 @@ public:
 	void step();
 	void add_spikes(vector<pre_spike> const&);
 	std::vector<unsigned int> get_last_spikes();
+	void eject_dopamine();
 
 private:
 	int get_delays(int delay_start[D],int synapseID);
@@ -66,5 +67,5 @@ private:
 	// spike storage
 	vector<unsigned int> spikes;
 	unsigned int k[1000];
-
+	float DA;
 };

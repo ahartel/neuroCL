@@ -108,6 +108,12 @@ void Network::add_spikes(vector<pre_spike> const& pre_spikes)
 	}
 }
 
+void Network::eject_dopamine()
+{
+	DA = 1.0;
+	cout << "Dopamine" << endl;
+}
+
 Network::Network() :
 	name("default_name"),
 	delay_pointer(0),
@@ -117,7 +123,8 @@ Network::Network() :
 	a(N,0),
 	sd{N},
 	sd_pre{N},
-	spikes(1000*N)
+	spikes(1000*N),
+	DA(0)
 {
 	init();
 }
@@ -131,7 +138,8 @@ Network::Network(std::string const& n) :
 	a(N,0),
 	sd{N},
 	sd_pre{N},
-	spikes(1000*N)
+	spikes(1000*N),
+	DA(0)
 {
 	init();
 }
@@ -372,6 +380,7 @@ void Network::step()
 
 		if (t==1000)
 		{
+			cout << "DA level :" << DA << endl;
 			for (unsigned int i=0;i<N;i++)		// prepare for the next sec
 			{
 				for (unsigned int j=0;j<D+1;j++)
@@ -384,7 +393,7 @@ void Network::step()
 #endif
 					for (unsigned int j=0;j<num_post[i];j++)
 					{
-						weights[i][j] += 0.01+sd[i][j];
+						weights[i][j] += DA*(0.01+sd[i][j]);
 						sd[i][j] *= 0.9;
 						if (weights[i][j]>sm) weights[i][j]=sm;
 						if (weights[i][j]<0) weights[i][j]=0.0;
@@ -425,6 +434,7 @@ void Network::step()
 		{
 			k[t] = k[t-1];
 		}
+		DA *= 0.99;
 		// end of 'second' loop
 	//STOP_TIMER("complete", complete)
 

@@ -41,7 +41,7 @@ const float pspeed = 7;
 int score[2];// = {0, 0}; // Score for players 1 and 2
 
 #define bsize 10
-GLdouble bpos_old;
+GLdouble bpos_old[2] = {235,235};
 GLdouble bpos[2] = {235,235};
 GLfloat bvx = 1; // ball vector in left-right axis
 GLfloat bvy = 1; // ball vector in top-bottom axis
@@ -61,7 +61,7 @@ void * font = GLUT_BITMAP_9_BY_15;
 /*********************************************
     Neuron connections
 *********************************************/
-void updateNeurons()
+void updateNeurons(bool collision)
 {
 	std::vector<pre_spike> spikes;
 
@@ -70,52 +70,78 @@ void updateNeurons()
 
 	if (p2_old > p2)
 		for (size_t ii=p2/2;ii<p2_old/2; ++ii)
-			spikes.push_back(pre_spike(ii,0,10));
-			//neurons[ii] = 1;
+			spikes.push_back(pre_spike(ii+500,0,10));
 	else
 		for (size_t ii=p2_old/2;ii<p2/2; ++ii)
 			spikes.push_back(pre_spike(ii,0,10));
-			//neurons[ii] = 1;
 
-	if (bpos_old > bpos[1])
-		for (size_t ii=bpos[1]/2;ii<bpos_old/2; ++ii)
-			spikes.push_back(pre_spike(ii+250,0,10));
-			//neurons[ii+250] = 1;
+	if (bpos_old[0] > bpos[0])
+		for (size_t ii=bpos[0]/2;ii<bpos_old[0]/2; ++ii)
+			spikes.push_back(pre_spike(ii,0,10));
 	else
-		for (size_t ii=bpos_old/2;ii<bpos[1]/2; ++ii)
-			spikes.push_back(pre_spike(ii+250,0,10));
-			//neurons[ii+250] = 1;
+		for (size_t ii=bpos_old[0]/2;ii<bpos[0]/2; ++ii)
+			spikes.push_back(pre_spike(ii,0,10));
 
-	//spikes
-	//for (size_t ii=0;ii<Height; ++ii)
-	//{
+	if (bpos_old[1] > bpos[1])
+		for (size_t ii=bpos[1]/2;ii<bpos_old[1]/2; ++ii)
+			spikes.push_back(pre_spike(ii+250,0,10));
+	else
+		for (size_t ii=bpos_old[1]/2;ii<bpos[1]/2; ++ii)
+			spikes.push_back(pre_spike(ii+250,0,10));
+
+
+	unsigned int sec_790 =0;
+	unsigned int sec_791 =0;
+	unsigned int fir_790 =0;
+	unsigned int fir_791 =0;
 
 	network.add_spikes(spikes);
+	if (collision)
+		network.eject_dopamine();
 	network.step();
-	int direction = 0;
-	std::vector<unsigned int> get_spikes = network.get_last_spikes();
+	std::vector<unsigned int> first_spikes = network.get_last_spikes();
+	network.step();
+	std::vector<unsigned int> next_spikes = network.get_last_spikes();
+	first_spikes.insert(first_spikes.end(),next_spikes.begin(),next_spikes.end());
 
-	//unsigned int up_spikes =0;
-	//unsigned int down_spikes =0;
 
-	if (!get_spikes.empty())
+	network.step();
+	next_spikes = network.get_last_spikes();
+	first_spikes.insert(first_spikes.end(),next_spikes.begin(),next_spikes.end());
+	network.step();
+	next_spikes = network.get_last_spikes();
+	first_spikes.insert(first_spikes.end(),next_spikes.begin(),next_spikes.end());
+
+	if (!first_spikes.empty())
 	{
-		for (auto sp : get_spikes)
+		for (auto sp : first_spikes)
 		{
-			//cout << sp << ",";
-			if (sp>=790 && sp<800)
-			{
-				//++up_spikes;
-				direction += 1;
-			}
+			if (sp>=770 && sp<780)
+				fir_790 += 1;
 			else if (sp>=780 && sp<790)
-			{
-				//++down_spikes;
-				direction -= 1;
-			}
+				fir_791 += 1;
 		}
-		//cout << endl;
 	}
+
+	//if (!first_spikes.empty())
+	//{
+	//	for (auto sp : first_spikes)
+	//	{
+	//		if (sp>=770 && sp<785)
+	//			sec_790=1;
+	//		if (sp>=785 && sp<800)
+	//			sec_791=1;
+	//	}
+	//}
+
+
+	int direction = 0;
+
+	if (fir_790 > fir_791)
+		direction = 1;
+	else if (fir_791 > fir_790)
+		direction = -1;
+
 
 	//cout << "up: " << up_spikes << "\tdown: " << down_spikes << endl;
 
@@ -130,6 +156,7 @@ void updateNeurons()
 			direction += 1;
 	}
 	*/
+
 	if (direction > 0)
 	{
 		p2speed = pspeed*p2speedup;
@@ -140,6 +167,7 @@ void updateNeurons()
 		p2speed = -pspeed*p2speedup;
 		p2speedup *= 0.9;
 	}
+
 }
 
 
@@ -177,7 +205,10 @@ void renderScene(void)
 *********************************************/
 void update()
 {
-	 bpos_old = bpos[1];
+	bool right_collision = 0;
+
+     bpos_old[0] = bpos[0];
+     bpos_old[1] = bpos[1];
      // Ball collision with the border of the window.
      if(bpos[0] + bspeed > 500-bsize)
      {
@@ -193,18 +224,19 @@ void update()
           bvy = -1;
      else if (bpos[1] - bspeed < 0)
           bvy = 1;
-          
+
      /******** Collision with the paddles ********/
      // Collision with left paddle.
-     if(bpos[0] <= 10 + paddleWidth && bpos[1] >= p1 && bpos[1] + bsize <= p1 + paddleHeight)
+     if(bpos[0] <= 10 + paddleWidth && bpos[1] >= p1 && bpos[1] + bsize <= p1 + paddleHeight && bvx == -1)
      {
           bvx *= -1;
           // bspeed *= 1.01;
      }
      // Collision with right paddle.
-     if(bpos[0] + bsize >= 480 && bpos[1] >= p2 && bpos[1] + bsize <= p2 + paddleHeight)
+     if(bpos[0] + bsize >= 480 && bpos[1] >= p2 && bpos[1] + bsize <= p2 + paddleHeight && bvx == 1)
      {
           bvx *= -1;
+          right_collision = 1;
           // bspeed *= 1.01;
      }
      
@@ -243,7 +275,7 @@ void update()
 	 if (p2speedup <= 1.8)
 		 p2speedup += 0.2;
 
-	 updateNeurons();
+	 updateNeurons(right_collision);
 }
 
 /*********************************************
@@ -295,7 +327,7 @@ void keyPress(unsigned char key, int x, int y)
 *********************************************/
 void specialKeyPress(int key, int x, int y)
 {
-	if (curTime < 10000)
+	/*
      switch (key) 
      {
             case GLUT_KEY_UP:
@@ -307,7 +339,7 @@ void specialKeyPress(int key, int x, int y)
 				p2speedup *= 0.9;
                  break;
      }
-
+*/
 }
 
 /*********************************************
