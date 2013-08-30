@@ -378,17 +378,21 @@ void specialKeyPress(int key, int x, int y)
 *********************************************/
 void init(void)
 {
-     // The color the windows will redraw. Its done to erase the previous frame.
-     glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black, no opacity(alpha).
-     
-     // Orthographic projection matrix (initiating 2D window).
-     gluOrtho2D(0,500,0,500);
-     
-     // Initialize time.
-     prtime = curTime = glutGet(GLUT_ELAPSED_TIME);   
-     
-     // Initialize score.
-     score[0] = score[1] = 0;
+	// The color the windows will redraw. Its done to erase the previous frame.
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black, no opacity(alpha).
+
+	// Orthographic projection matrix (initiating 2D window).
+	gluOrtho2D(0,500,0,500);
+
+	// Initialize time.
+	prtime = curTime = glutGet(GLUT_ELAPSED_TIME);
+
+	// Initialize score.
+	score[0] = score[1] = 0;
+
+	// Remove performance file
+	ofstream myfile( "performance.txt", ios::out);
+	myfile.close();
 }
 
 /* Main function */
@@ -409,15 +413,15 @@ int main(int argc, char *argv[])
     glutDisplayFunc(renderScene);
 
     // Define the keyboard input function.
-    glutKeyboardFunc(keyPress);    
+    glutKeyboardFunc(keyPress);
     // Define the keyboards' special keys input function.
     glutSpecialFunc(specialKeyPress);
-    
+
     // Define which function to execute when nothing except the gameplay is updating.
     glutIdleFunc(renderScene);
 
     init();
-    
+
     glutMainLoop();
 
     return 0;
