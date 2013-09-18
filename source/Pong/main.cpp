@@ -20,7 +20,7 @@ const int Width = 500;
 const int Height = 500;
 
 // Neurons
-Network network;
+Network network(800,200,100);
 //bool neurons[Height];
 
 // Dimensions
@@ -107,7 +107,7 @@ void updateNeurons(bool collision)
 	unsigned int fir_790 =0;
 	unsigned int fir_791 =0;
 
-	network.add_spikes(spikes);
+	network.add_current(spikes);
 	if (collision)
 		network.eject_dopamine();
 	network.step();

@@ -1,10 +1,11 @@
 #include "helpers.h"
 #include <iostream>
 #include <fstream>
+#include <array>
 
 using namespace std;
 
-void write_derivatives(string filename, unsigned int sec, std::vector<std::vector<float> >const& watched_LTP, std::vector<std::vector<float> > const& watched_LTD)
+void write_derivatives(string filename, unsigned int sec, std::vector<std::vector<float> >const& watched_LTP, std::vector<std::vector<float> > const& watched_LTD, std::vector<unsigned int> const& neurons_tobe_watched)
 {
 	filename = string("./results/")+filename;
 	if (sec==0)
@@ -24,7 +25,7 @@ void write_derivatives(string filename, unsigned int sec, std::vector<std::vecto
 	ofstream myfile(filename, ios::app);
 	for (int t=0; t<1000; t++) {
 		myfile << sec*1000+t;
-		for (unsigned int n=0; n < num_watched_neurons; n++)
+		for (unsigned int n=0; n < neurons_tobe_watched.size(); n++)
 		{
 			if (watched_LTP[n][t] > 0)
 				myfile << "," << watched_LTP[n][t];
@@ -64,7 +65,7 @@ void write_spikes(string filename, unsigned int sec, vector<unsigned int> const&
 
 }
 
-void write_watched_membranes(string filename, unsigned int sec, std::vector<std::vector<float> >const& watched_membrane, std::vector<std::vector<float> > const& watched_us)
+void write_watched_membranes(string filename, unsigned int sec, std::vector<std::vector<float> >const& watched_membrane, std::vector<std::vector<float> > const& watched_us, std::vector<unsigned int> const& neurons_tobe_watched)
 {
 	filename = string("./results/")+filename;
 
@@ -84,7 +85,7 @@ void write_watched_membranes(string filename, unsigned int sec, std::vector<std:
 	ofstream myfile(filename,ios::app);
 	for (int t=0; t<1000; t++) {
 		myfile << sec*1000+t;
-		for (unsigned int n=0; n < num_watched_neurons; n++)
+		for (unsigned int n=0; n < neurons_tobe_watched.size(); n++)
 		{
 			myfile << "," << watched_membrane[n][t];
 #ifdef WATCH_ADAPTATION
@@ -96,6 +97,7 @@ void write_watched_membranes(string filename, unsigned int sec, std::vector<std:
 	myfile.close();
 }
 
+/*
 void init_neurons_sparse(
 	vector<float> & membranes,
 	vector<float> & u,
@@ -131,7 +133,7 @@ void init_neurons_sparse(
 
 	/*
 	 * init neuron parameters
-	 */
+	 * /
 	// iterate over neurons
 	for (int i=0; i<N; i++) {
 		//membranes[i] = (float)rand()/float(RAND_MAX)*50.0;
@@ -154,7 +156,7 @@ void init_neurons_sparse(
 
 	/*
 	 * init connectivity
-	 */
+	 * /
 	// iterate over neurons
 	for (int i=0; i<N; i++) {
 		// pick how many post-synaptic connections this neuron will have
@@ -227,7 +229,7 @@ void init_neurons_sparse(
 				   actually, sd would have to be sorted here, too!
 				   But since it's initialized with zeros anyway,
 				   we can just skip it here
-			    */
+			    * /
 
 				delay_it++;
 			}
@@ -240,7 +242,7 @@ void init_neurons_sparse(
 		   The next loop calculates the correct values for
 		   the delay_count and delay_start arrays, according
 		   to Nageswaran et al.
-		*/
+		* /
 		int last_delay = 0;
 		for (int d=0; d<D; d++)
 		{
@@ -291,42 +293,6 @@ void init_neurons_sparse(
 		}
 	}
 }
+*/
 
-void init_neurons(float* membranes, float* u, float* d, float* a, float I[N][D], float weights[N][M], int delays[N][M], int post_neurons[N][M], int* num_post)
-{
-	srand(42);
-	for (int i=0; i<N; i++) {
-		//membranes[i] = (float)rand()/float(RAND_MAX)*50.0;
-		membranes[i] = v_reset;
 
-		for (int del=0; del<D; del++)
-		{
-			I[i][del] = 0;//(float)rand()/float(RAND_MAX)*10.0;
-		}
-		u[i] = 0.2*membranes[i];
-		if (i < Ne) {
-			a[i] = 0.02;
-			d[i] = 8.0;
-		}
-		else {
-			a[i] = 0.1;
-			d[i] = 2.0;
-		}
-
-		num_post[i] = getrandom(M);
-
-		for (int m=0; m<num_post[i]; m++)
-		{
-			if (i<Ne)
-				weights[i][m] = 6.;
-			else
-				weights[i][m] = -5.;
-
-			delays[i][m] = getrandom(D);
-
-			post_neurons[i][m] = getrandom(N);
-			while (post_neurons[i][m] == i)
-				post_neurons[i][m] = getrandom(N);
-		}
-	}
-}
