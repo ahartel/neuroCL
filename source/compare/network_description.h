@@ -44,6 +44,8 @@ public:
 	unsigned int add_neuron();
 	unsigned int connect_neurons(unsigned int, unsigned int, float, unsigned int);
 	unsigned int getNumberOfNeurons() const { return neuron_index; };
+	unsigned int getNumberOfExcNeurons() const { return neuron_index; };
+	unsigned int getNumberOfInhNeurons() const { return 0; };
 	unsigned int getNumberConnectionsOfNeuron(unsigned int i) const { return neurons.at(i).getNumberConnections(); };
 	std::tuple<float,unsigned int> getConnectionOfNeuron(unsigned int i, unsigned int j) const { return neurons.at(i).getConnection(j); };
 	unsigned int getPostOfNeuron(unsigned int i, unsigned int j) const { return neurons.at(i).getPostNeuron(j); };

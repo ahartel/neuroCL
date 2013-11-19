@@ -6,6 +6,7 @@
 #include <vector>
 #include "network.h"
 
+
 using namespace std;
 
 std::vector<unsigned int> Network::get_last_spikes()
@@ -153,6 +154,8 @@ Network::Network(unsigned int e, unsigned int i, unsigned int m) :
 
 Network::Network(std::string const& n, NetworkDescription const& spec) :
 	N(spec.getNumberOfNeurons()),
+	Ne(spec.getNumberOfExcNeurons()),
+	Ni(spec.getNumberOfInhNeurons()),
 	name(n),
 	delay_pointer(0),
 	membranes(N,0),
@@ -560,7 +563,7 @@ void Network::step()
 								throw std::logic_error(bla.str());
 							}
 
-							//cout << "Neuron " << i << " pre " << pre_neurons[i][j] << endl;
+							cout << "Neuron " << i << " pre " << pre_neurons[i][j] << endl;
 							*sd_pre[i][j] += LTP[pre_neurons[i][j]][t+D-d-1];// this spike was after pre-synaptic spikes
 							// keep track of the number of remaining neurons with current delay
 							// if necessary, increase delay value
@@ -665,7 +668,6 @@ void Network::step()
 	#if defined(WATCH_NEURONS) || defined(WATCH_DERIVATIVES)
 			for (unsigned int i=0; i < std::vector<unsigned int>(WATCHED_NEURONS).size(); i++)
 			{
-				cout << i << endl;
 	#ifdef WATCH_NEURONS
 				watched_membrane[i].push_back(membranes[std::vector<unsigned int>(WATCHED_NEURONS)[i]]);
 	#ifdef WATCH_ADAPTATION
@@ -688,12 +690,43 @@ void Network::step()
 
 		++t;
 
-#ifdef WITH_DA
-		if (t%10==0 && DA > 1e-4)
+		if (t==1000)
 		{
-			cout << "DA level :" << DA << endl;
+
+#ifdef WITH_DA
+			if (t%10==0 && DA > 1e-4)
+			{
+				cout << "DA level :" << DA << endl;
+				for (unsigned int i=0;i<N;i++)		// prepare for the next sec
+				{
+					if (i< Ne && num_post[i] > 0)
+					{
+#ifdef DEBUG_OUTPUT
+						cout << "Neuron " << i << "'s weights: ";
+#endif
+						for (unsigned int j=0;j<num_post[i];j++)
+						{
+							weights[i][j] += DA*(0.01+sd[i][j]);
+							if (weights[i][j]>sm) weights[i][j]=sm;
+							if (weights[i][j]<0) weights[i][j]=0.0;
+#ifdef DEBUG_OUTPUT
+							cout << " " << weights[i][j];
+#endif
+						}
+#ifdef DEBUG_OUTPUT
+						cout << endl;
+						cout << "Neuron " << i << "'s deerivatives: ";
+						for (unsigned int j=0;j<num_post[i];j++)
+							cout << " " << sd[i][j];
+						cout << endl;
+#endif
+					}
+				}
+			}
+#else
 			for (unsigned int i=0;i<N;i++)		// prepare for the next sec
 			{
+				cout << "Neuron " << i << " num_post " << num_post[i] << endl;
 				if (i< Ne && num_post[i] > 0)
 				{
 #ifdef DEBUG_OUTPUT
@@ -701,7 +734,7 @@ void Network::step()
 #endif
 					for (unsigned int j=0;j<num_post[i];j++)
 					{
-						weights[i][j] += DA*(0.01+sd[i][j]);
+						weights[i][j] += 0.01+sd[i][j];
 						if (weights[i][j]>sm) weights[i][j]=sm;
 						if (weights[i][j]<0) weights[i][j]=0.0;
 #ifdef DEBUG_OUTPUT
@@ -717,20 +750,16 @@ void Network::step()
 #endif
 				}
 			}
-		}
 #endif
 
-
-		if (t==1000)
-		{
 			for (unsigned int i=0;i<N;i++)		// prepare for the next sec
 			{
 				for (unsigned int j=0;j<D+1;j++)
 				{
-#ifdef WITH_DA
-					weights[i][j] += 0.01+sd[i][j];
-					sd[i][j] *= 0.9;
-#endif
+//#ifdef WITH_DA
+					//weights[i][j] += 0.01+sd[i][j];
+					//sd[i][j] *= 0.9;
+//#endif
 					LTP[i][j] = LTP[i][1000+j];
 				}
 			}
