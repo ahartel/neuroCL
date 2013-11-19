@@ -20,6 +20,7 @@ def build(bld):
 		use=['GL','neuroobj'],
         includes='source',
 		cxxflags='-std=c++0x -DWITH_DA',
+		install_path='bin'
 	)
 
 	bld.objects(
@@ -33,12 +34,23 @@ def build(bld):
 
 	#bld.program(source='source/neurosim.cpp', target='neurosim', use='neuroobj OPENCL')
 
-	bld.program(source=['source/compare/fire_evolve.cpp'], target='loop_fire_evolve', use='neuroobj')
-	bld.program(source=['source/compare/fire_evolve_sparse.cpp','source/compare/network.cpp'], target='fire_evolve_sparse', use='neuroobj')
 	bld.program(
-        source=['source/stdp/simple_test.cpp','source/compare/network.cpp'],
+		source=['source/compare/fire_evolve.cpp'],
+		target='loop_fire_evolve',
+		use='neuroobj',
+		install_path='bin'
+	)
+	bld.program(
+		source=['source/compare/fire_evolve_sparse.cpp','source/compare/network.cpp'],
+		target='fire_evolve_sparse',
+		use='neuroobj',
+		install_path='bin'
+	)
+	bld.program(
+        source=['source/test/stdp/simple_test.cpp','source/compare/network.cpp'],
         target='stdp_test', use='neuroobj',
         includes='source',
         cxxflags=['-DDEBUG_OUTPUT', '-DWATCH_DERIVATIVES','-DWATCHED_NEURONS={0,1,2,3}','-DWATCH_NEURONS'],
+		install_path='bin/'
     )
 
