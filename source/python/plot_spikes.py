@@ -17,7 +17,6 @@ for line in f:
 			spikes[number] = []
 			spikes[number].append(time)
 
-print spikes
 
 for number,times in spikes.iteritems():
 	plt.vlines(times,int(number)-0.45,int(number)+0.45)

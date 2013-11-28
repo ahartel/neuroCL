@@ -521,7 +521,14 @@ void Network::step()
 			*/
 			if (background_spikes)
 				for (int j=0;j<N/1000+1;j++)
-					I[getrandom(N)][delay_pointer] += 20.0;
+				{
+					unsigned int target = getrandom(N);
+#ifdef DEBUG_OUTPUT
+
+					cout << "Injecting background spike into neuron " <<  target << endl;
+#endif
+					I[target][delay_pointer] += 20.0;
+				}
 			// reset loop
 			for (int i=0; i<N; i++)
 			{
@@ -563,7 +570,7 @@ void Network::step()
 								throw std::logic_error(bla.str());
 							}
 
-							cout << "Neuron " << i << " pre " << pre_neurons[i][j] << endl;
+							cout << "Neuron " << i << " pre " << pre_neurons[i][j] << " adding " << LTP[pre_neurons[i][j]][t+D-d-1] << " to synapse (" << j << "," << i << ")" << endl;
 							*sd_pre[i][j] += LTP[pre_neurons[i][j]][t+D-d-1];// this spike was after pre-synaptic spikes
 							// keep track of the number of remaining neurons with current delay
 							// if necessary, increase delay value
@@ -629,7 +636,11 @@ void Network::step()
 						}
 						unsigned int pst_n = post_neurons[neuronID][m];
 						if (pst_n < Ne) // this spike is before postsynaptic spikes
+						{
+							cout << "Neuron " << neuronID << " post " << pst_n << " substracting " << LTD[m] << " from synapse (" << neuronID << "," << pst_n << ")" << endl;
 							sd[neuronID][m] -= LTD[m];
+							cout << "Resulting sd for this synapse: " << sd[neuronID][m] << endl;	
+						}
 
 						I[pst_n][(d+delay_pointer+1)%(D+1)] += weights[neuronID][m];
 						// keep track of the number of remaining neurons with current delay
@@ -662,7 +673,7 @@ void Network::step()
 				//reset current
 				I[i][delay_pointer] = 0;
 
-				LTP[i][t+D+1]=0.95*LTP[i][t+D];
+				LTP[i][t+D+1]=0.98*LTP[i][t+D];
 				LTD[i]*=0.95;
 			}
 	#if defined(WATCH_NEURONS) || defined(WATCH_DERIVATIVES)
@@ -740,6 +751,7 @@ void Network::step()
 #ifdef DEBUG_OUTPUT
 						cout << " " << weights[i][j];
 #endif
+						sd[i][j] *= 0.9;
 					}
 #ifdef DEBUG_OUTPUT
 					cout << endl;
@@ -758,7 +770,6 @@ void Network::step()
 				{
 //#ifdef WITH_DA
 					//weights[i][j] += 0.01+sd[i][j];
-					//sd[i][j] *= 0.9;
 //#endif
 					LTP[i][j] = LTP[i][1000+j];
 				}
