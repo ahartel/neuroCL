@@ -1,3 +1,4 @@
+import waflib
 
 def options(opt):
 	opt.load('compiler_cxx')
@@ -46,11 +47,15 @@ def build(bld):
 		use='neuroobj',
 		install_path='bin'
 	)
-	bld.program(
-        source=['source/test/stdp/simple_test.cpp','source/compare/network.cpp'],
-        target='stdp_test', use='neuroobj',
-        includes='source',
-        cxxflags=['-DDEBUG_OUTPUT', '-DWATCH_DERIVATIVES','-DWATCHED_NEURONS={0,1,2,3}','-DWATCH_NEURONS'],
-		install_path='bin/'
-    )
+
+	for file in bld.path.ant_glob('source/test/**/*.cpp'):
+		target = waflib.Node.split_path(file.abspath())[-1].split('.')[0]
+		bld.program(
+			source=[file,'source/compare/network.cpp'],
+			target=target,
+			use='neuroobj',
+			includes='source',
+			cxxflags=['-DDEBUG_OUTPUT', '-DWATCH_DERIVATIVES','-DWATCHED_NEURONS={0,1,2,3}','-DWATCH_NEURONS','-DWATCH_WEIGHTS'],
+			install_path='bin/'
+		)
 
