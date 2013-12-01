@@ -135,6 +135,7 @@ Network::Network(unsigned int e, unsigned int i, unsigned int m) :
 	a(N,0),
 	sd{N},
 	sd_pre{N},
+	weights{N},
 #ifdef WITH_DA
 	DA(0),
 #endif
@@ -164,6 +165,7 @@ Network::Network(std::string const& n, NetworkDescription const& spec) :
 	a(N,0),
 	sd{N},
 	sd_pre{N},
+	weights{N},
 #ifdef WITH_DA
 	DA(0),
 #endif
@@ -194,6 +196,7 @@ Network::Network(std::string const& n,unsigned int e, unsigned int i, unsigned i
 	a(N,0),
 	sd{N},
 	sd_pre{N},
+	weights{N},
 #ifdef WITH_DA
 	DA(0),
 #endif
@@ -229,7 +232,6 @@ Network::~Network()
 	delete [] LTP;
 	delete [] I;
 
-	delete[] weights;
 	delete[] post_neurons;
 	delete[] pre_neurons;
 	delete[] num_post;
@@ -248,7 +250,6 @@ void Network::init()
 	delay_start_pre = new unsigned int*[N];
 	delay_count = new unsigned int*[N];
 	delay_count_pre = new unsigned int*[N];
-	weights = new vector<float>[N];
 	post_neurons = new vector<unsigned int>[N];
 	pre_neurons = new vector<unsigned int>[N];
 	num_post = new unsigned int[N];
@@ -305,15 +306,21 @@ void Network::init()
 
 void Network::init_from_spec(NetworkDescription const& spec)
 {
+	/*
+	 * The number N of neurons has already been initialized
+	 * in the constructor.
+	 */
+
+	// Let's start at t=0
 	delay_pointer = 0;
-	// spike storage
+	// ... and with zero spikes
 	for (unsigned int i=0; i<1000; i++) k[i] = 0;
 
+	// We're probably gonna need some memory for the task at hand
 	delay_start = new unsigned int*[N];
 	delay_start_pre = new unsigned int*[N];
 	delay_count = new unsigned int*[N];
 	delay_count_pre = new unsigned int*[N];
-	weights = new vector<float>[N];
 	post_neurons = new vector<unsigned int>[N];
 	pre_neurons = new vector<unsigned int>[N];
 	num_post = new unsigned int[N];
@@ -321,12 +328,18 @@ void Network::init_from_spec(NetworkDescription const& spec)
 	LTD = new float[N];
 	LTP = new float*[N];
 	I = new float*[N];
-
 	// This vector stores all pre-synaptic delays temporarily
 	vector<unsigned int> pre_delays[N][D];
 
-	for (int i=0; i<N; i++)
-	{
+	/*
+	 * init neuron parameters
+	 */
+	// iterate over neurons and store the information
+	// that is equal for every neuron.
+	// Connection-specific data is prepared in the next loop.
+	// (This is the init function so we're a bit generous with processor time)
+	for (int i=0; i<N; i++) {
+		// initialize delay arrays for all neurons
 		delay_start[i] = new unsigned int[D];
 		delay_start_pre[i] = new unsigned int[D];
 		delay_count[i] = new unsigned int[D];
@@ -334,48 +347,12 @@ void Network::init_from_spec(NetworkDescription const& spec)
 
 		for (int d=0; d<D; ++d)
 			delay_count_pre[i][d] = 0;
+		// set number of pre-synaptic neurons to zero at first
 		num_pre[i] = 0;
-	}
-
-	/*
-	 * init neuron parameters
-	 */
-	// iterate over neurons
-	for (int i=0; i<N; i++) {
+		// alloc memory for currents and depression
 		I[i] = new float[D+1];
-		LTP[i] = new float[1001+D];
-
-		membranes[i] = v_reset;
-
-		for (int del=0; del<=D; del++)
-		{
-			I[i][del] = 0;//(float)rand()/float(RAND_MAX)*10.0;
-		}
-		u[i] = 0.2*membranes[i];
-		if (i < Ne) {
-			a[i] = 0.02;
-			d[i] = 8.0;
-		}
-		else {
-			a[i] = 0.1;
-			d[i] = 2.0;
-		}
-	}
-
-	/*
-	 * init connectivity
-	 */
-	// iterate over neurons
-	for (int i=0; i<N; i++) {
-		// pick how many post-synaptic connections this neuron will have
-		num_post[i] = spec.getNumberConnectionsOfNeuron(i);
-		// create temporary objects for delays, post-synaptic neurons and weights
-		int delays[M];
-		// the array synapse_numbers holds all synapse numbers for a given delay
-		vector<int> synapse_numbers[D];
-		vector<int> pst_n;
-		vector<float> wgt_n;
 		// reset STDP variables
+		LTP[i] = new float[1001+D];
 		LTD[i] = 0.0;
 		for (unsigned int j=0;j<1000+D;++j)
 			LTP[i][j] = 0.0;
@@ -385,31 +362,68 @@ void Network::init_from_spec(NetworkDescription const& spec)
 			delay_start[i][d] = 0;
 			delay_count[i][d] = 0;
 		}
+		// set membrane potentials to v_reset for all neurons
+		membranes[i] = v_reset;
+		// reset all currents to zero
+		for (int del=0; del<=D; del++)
+		{
+			I[i][del] = 0;//(float)rand()/float(RAND_MAX)*10.0;
+		}
+		// reset all other neuron parameters
+		u[i] = 0.2*membranes[i];
+		if (i < Ne) {
+			a[i] = 0.02;
+			d[i] = 8.0;
+		}
+		else {
+			a[i] = 0.1;
+			d[i] = 2.0;
+		}
+		// set weight derivatives initially to zero
+		sd[i].push_back(0.0);
+	}
+
+	/*
+	 * init connectivity
+	 */
+	// iterate over neurons
+	for (int i=0; i<N; i++) {
+		// ask the specification how many post-synaptic connections this neuron will have
+		num_post[i] = spec.getNumberConnectionsOfNeuron(i);
+		// create temporary objects for delays, post-synaptic neurons and weights
+		int delays[num_post[i]];
+		// the array synapse_numbers holds all synapse numbers for a given delay
+		vector<int> synapse_numbers[D];
+		// Store this neurons post-synaptic neuron numbers
+		vector<int> pst_n;
+		// Store this neurons post-synaptic weights
+		vector<float> wgt_n;
+
 		// create values for connectivity
 		// This will set weights and pick delays for each
 		// of the neuron's post-synaptic connections
-		for (int m=0; m<num_post[i]; m++)
+		for (int m=0; m<num_post[i]; m++) // for all connections
 		{
-			// Initialize weights to fixed values
+			// store the weight of this connection
 			std::tuple<float, unsigned int> conn = spec.getConnectionOfNeuron(i,m);
 			wgt_n.push_back(get<0>(conn));
-
-			// set weight derivatives initially to zero
-			sd[i].push_back(0.0);
-			// pick a delay and sort it into the delay_count array
+			// Store the connections's delay
 			delays[m] = get<1>(conn);
-			synapse_numbers[delays[m]].push_back(m);
-			delay_count[i][delays[m]]++;
-			// pick a post-synaptic neuron number
+			// store the post-synaptic neuron number
 			unsigned int tmp_post = spec.getPostOfNeuron(i,m);
 			// make sure the post-syn. neuron is not the pre-syn. neuron
 			if (tmp_post == i)
 				throw std::logic_error("Neuron with self-connection found");
-
 			pst_n.push_back(tmp_post);
+
+			// store the delay information again together with the current synapse number 'm' for later sorting
+			synapse_numbers[delays[m]].push_back(m);
+			delay_count[i][delays[m]]++;
 
 #ifdef DEBUG_OUTPUT
 			cout << "Neuron " << i << ": Added post-neuron " << pst_n.back() << " with delay " << delays[m] << endl;
+			cout << "Neuron " << i << ": Added post-neuron " << tmp_post << " with num_pre " << num_pre[tmp_post] << endl;
+			cout << pre_delays[tmp_post][delays[m]].size() << endl;
 #endif
 
 			// update pre-synaptic connection arrays
@@ -523,10 +537,6 @@ void Network::step()
 				for (int j=0;j<N/1000+1;j++)
 				{
 					unsigned int target = getrandom(N);
-#ifdef DEBUG_OUTPUT
-
-					cout << "Injecting background spike into neuron " <<  target << endl;
-#endif
 					I[target][delay_pointer] += 20.0;
 				}
 			// reset loop
@@ -570,7 +580,7 @@ void Network::step()
 								throw std::logic_error(bla.str());
 							}
 
-							cout << "Neuron " << i << " pre " << pre_neurons[i][j] << " adding " << LTP[pre_neurons[i][j]][t+D-d-1] << " to synapse (" << j << "," << i << ")" << endl;
+							//cout << "Neuron " << i << " pre " << pre_neurons[i][j] << " adding " << LTP[pre_neurons[i][j]][t+D-d-1] << " to synapse (" << j << "," << i << ")" << endl;
 							*sd_pre[i][j] += LTP[pre_neurons[i][j]][t+D-d-1];// this spike was after pre-synaptic spikes
 							// keep track of the number of remaining neurons with current delay
 							// if necessary, increase delay value
@@ -637,9 +647,9 @@ void Network::step()
 						unsigned int pst_n = post_neurons[neuronID][m];
 						if (pst_n < Ne) // this spike is before postsynaptic spikes
 						{
-							cout << "Neuron " << neuronID << " post " << pst_n << " substracting " << LTD[m] << " from synapse (" << neuronID << "," << pst_n << ")" << endl;
+							//cout << "Neuron " << neuronID << " post " << pst_n << " substracting " << LTD[m] << " from synapse (" << neuronID << "," << pst_n << ")" << endl;
 							sd[neuronID][m] -= LTD[m];
-							cout << "Resulting sd for this synapse: " << sd[neuronID][m] << endl;	
+							//cout << "Resulting sd for this synapse: " << sd[neuronID][m] << endl;	
 						}
 
 						I[pst_n][(d+delay_pointer+1)%(D+1)] += weights[neuronID][m];
@@ -673,8 +683,8 @@ void Network::step()
 				//reset current
 				I[i][delay_pointer] = 0;
 
-				LTP[i][t+D+1]=0.98*LTP[i][t+D];
-				LTD[i]*=0.95;
+				LTP[i][t+D+1]=0.93*LTP[i][t+D];
+				LTD[i]*=0.9;
 			}
 	#if defined(WATCH_NEURONS) || defined(WATCH_DERIVATIVES)
 			for (unsigned int i=0; i < std::vector<unsigned int>(WATCHED_NEURONS).size(); i++)
@@ -701,9 +711,12 @@ void Network::step()
 
 		++t;
 
+		// This is only done every second
 		if (t==1000)
 		{
-
+#ifdef WATCH_WEIGHTS
+			write_weights("weights_"+name+".txt",sec,weights);
+#endif
 #ifdef WITH_DA
 			if (t%10==0 && DA > 1e-4)
 			{
@@ -794,12 +807,12 @@ void Network::step()
 			k[0] = 0;
 			t = 0;
 			last_sec = sec++;
-		}
-		else
+		} // end of 'second' loop
+		else // moved spike array pointer forward every millisecond
 		{
 			k[t] = k[t-1];
 		}
-		// end of 'second' loop
+		
 	//STOP_TIMER("complete", complete)
 
 }

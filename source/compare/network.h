@@ -74,7 +74,7 @@ private:
 	unsigned int** delay_count; //[N][D];
 	unsigned int** delay_count_pre;
 
-	vector<float>* weights;//[N];
+	vector<vector<float>> weights;//[N];
 	vector<unsigned int>* post_neurons;//[N];
 	vector<unsigned int>* pre_neurons;//[N];
 	unsigned int* num_post;//[N];
