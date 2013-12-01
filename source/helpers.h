@@ -61,6 +61,7 @@ void write_spikes(string filename, unsigned int sec, vector<unsigned int> const&
 
 void write_watched_membranes(string filename, unsigned int sec, std::vector<std::vector<float> >const& watched_membrane, std::vector<std::vector<float> > const& watched_us,std::vector<unsigned int> const&);
 
+void write_weights(string filename, unsigned int sec, std::vector<std::vector<float> >const& weights);
 /*
 void init_neurons_sparse(
 	vector<float> & membranes,

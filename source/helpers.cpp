@@ -97,6 +97,34 @@ void write_watched_membranes(string filename, unsigned int sec, std::vector<std:
 	myfile.close();
 }
 
+void write_weights(string filename, unsigned int sec, std::vector<std::vector<float> >const& weights)
+{
+	filename = string("./results/")+filename;
+
+	if (sec==0)
+	{
+		remove( filename.c_str() );
+		ofstream myfile(filename,ios::app);
+		myfile << "Time";
+		for (size_t i=0; i<weights.size(); ++i)
+			for (size_t j=0; j<weights[i].size(); ++j)
+				myfile << ",Synapse (" << i << "|" << j << ")";
+
+		myfile << endl;
+		myfile.close();
+	}
+
+	ofstream myfile(filename,ios::app);
+	myfile.setf(std::ios_base::dec|std::ios_base::fixed);
+	myfile.precision(3);
+	myfile << sec*1000.0;
+	for (auto n : weights)
+		for (auto w : n)
+			myfile << "," << w;
+	myfile << endl;
+	myfile.close();
+}
+
 /*
 void init_neurons_sparse(
 	vector<float> & membranes,
