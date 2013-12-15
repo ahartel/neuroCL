@@ -133,7 +133,7 @@ Network::Network(unsigned int e, unsigned int i, unsigned int m) :
 	u(N,0),
 	d(N,0),
 	a(N,0),
-	sd{N},
+	sd(N),
 	sd_pre{N},
 	weights{N},
 #ifdef WITH_DA
@@ -163,7 +163,7 @@ Network::Network(std::string const& n, NetworkDescription const& spec) :
 	u(N,0),
 	d(N,0),
 	a(N,0),
-	sd{N},
+	sd(N),
 	sd_pre{N},
 	weights{N},
 #ifdef WITH_DA
@@ -194,7 +194,7 @@ Network::Network(std::string const& n,unsigned int e, unsigned int i, unsigned i
 	u(N,0),
 	d(N,0),
 	a(N,0),
-	sd{N},
+	sd(N),
 	sd_pre{N},
 	weights{N},
 #ifdef WITH_DA
@@ -299,8 +299,6 @@ void Network::init()
 	last_sec = 0;
 	t = 0;
 
-
-
 }
 
 
@@ -379,8 +377,6 @@ void Network::init_from_spec(NetworkDescription const& spec)
 			a[i] = 0.1;
 			d[i] = 2.0;
 		}
-		// set weight derivatives initially to zero
-		sd[i].push_back(0.0);
 	}
 
 	/*
@@ -404,6 +400,8 @@ void Network::init_from_spec(NetworkDescription const& spec)
 		// of the neuron's post-synaptic connections
 		for (int m=0; m<num_post[i]; m++) // for all connections
 		{
+			// set weight derivatives initially to zero
+			sd[i].push_back(0.0);
 			// store the weight of this connection
 			std::tuple<float, unsigned int> conn = spec.getConnectionOfNeuron(i,m);
 			wgt_n.push_back(get<0>(conn));
@@ -512,6 +510,14 @@ void Network::init_from_spec(NetworkDescription const& spec)
 			last_delay += delay_count_pre[i][d];
 		}
 	}
+
+	INIT_TIMER(complete)
+	last_total_spikes = 0;
+	total_spikes = 0;
+	sec = 0;
+	last_sec = 0;
+	t = 0;
+
 }
 
 void Network::step()
