@@ -18,15 +18,15 @@ int main()
 	unsigned int n22 = n_spec.add_neuron();
 	unsigned int target = n_spec.add_neuron();
 
-	n_spec.connect_neurons(n00,target,6,0);
-	n_spec.connect_neurons(n01,target,6,0);
-	n_spec.connect_neurons(n02,target,6,0);
-	n_spec.connect_neurons(n10,target,6,0);
-	n_spec.connect_neurons(n11,target,6,0);
-	n_spec.connect_neurons(n12,target,6,0);
-	n_spec.connect_neurons(n20,target,6,0);
-	n_spec.connect_neurons(n21,target,6,0);
-	n_spec.connect_neurons(n22,target,6,0);
+	n_spec.connect_neurons(n00,target,6,0,1);
+	n_spec.connect_neurons(n01,target,6,0,1);
+	n_spec.connect_neurons(n02,target,6,0,1);
+	n_spec.connect_neurons(n10,target,6,0,1);
+	n_spec.connect_neurons(n11,target,6,0,1);
+	n_spec.connect_neurons(n12,target,6,0,1);
+	n_spec.connect_neurons(n20,target,6,0,1);
+	n_spec.connect_neurons(n21,target,6,0,1);
+	n_spec.connect_neurons(n22,target,6,0,1);
 
 	Network n("stdp_test",n_spec);
 	n.enable_random_background();

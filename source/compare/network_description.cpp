@@ -4,8 +4,8 @@ Connection::Connection()
 {
 }
 
-Connection::Connection(Neuron* n, float w, unsigned int d) :
-	post_neuron(n),weight(w),delay(d)
+Connection::Connection(Neuron* n, float w, unsigned int d, bool p) :
+	post_neuron(n),weight(w),delay(d),plasticity(p)
 {
 }
 
@@ -24,9 +24,9 @@ Neuron::Neuron(unsigned int i) :
 	id = i;
 }
 
-unsigned int Neuron::add_connection(Neuron* post, float weight, unsigned int delay)
+unsigned int Neuron::add_connection(Neuron* post, float weight, unsigned int delay, bool plastic)
 {
-	post_neurons[connection_index] = Connection(post,weight,delay);
+	post_neurons[connection_index] = Connection(post,weight,delay,plastic);
 	return connection_index++;
 }
 
@@ -42,7 +42,7 @@ unsigned int NetworkDescription::add_neuron()
 	return neuron_index++;
 }
 
-unsigned int NetworkDescription::connect_neurons(unsigned int pre, unsigned int post, float weight, unsigned int delay)
+unsigned int NetworkDescription::connect_neurons(unsigned int pre, unsigned int post, float weight, unsigned int delay, bool plastic)
 {
-	return neurons[pre].add_connection(&(neurons[post]), weight, delay);
+	return neurons[pre].add_connection(&(neurons[post]), weight, delay, plastic);
 }
