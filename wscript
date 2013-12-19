@@ -6,7 +6,7 @@ def options(opt):
 def configure(conf):
 	conf.load('compiler_cxx')
 	conf.check_cxx(lib='OpenCL',use='opencl')
-	conf.env.CXXFLAGS = ['-std=c++0x','-g']
+	conf.env.CXXFLAGS = ['-std=c++0x','-g','-O3']
 	conf.env.INCLUDES = 'source/'
 
 	conf.env.LIB_GL = ['glut','GL','GLU']
@@ -55,7 +55,7 @@ def build(bld):
 			target=target,
 			use='neuroobj',
 			includes='source',
-			cxxflags=['-DDEBUG_OUTPUT', '-DWATCH_DERIVATIVES','-DWATCHED_NEURONS={0,1,2,3}','-DWATCH_NEURONS','-DWATCH_WEIGHTS'],
+			cxxflags=['-UDEBUG_OUTPUT', '-DWATCH_DERIVATIVES','-DWATCHED_NEURONS={0,1,2,3}','-DWATCH_NEURONS','-DWATCH_WEIGHTS'],
 			install_path='bin/'
 		)
 

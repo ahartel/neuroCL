@@ -77,12 +77,16 @@ int Network::get_delays(int delay_start[D],int synapseID)
 	{
 		if (delay_start[d] > synapseID && last_delay_start <= synapseID)
 		{
+#ifdef DEBUG_OUTPUT
 			cout << "Found delay " << d << " for synapseID " << synapseID << endl;
+#endif
 			return d;
 		}
 		else if (delay_start[d] <= synapseID && d==D-1)
 		{
+#ifdef DEBUG_OUTPUT
 			cout << "Found delay " << d << " for synapseID " << synapseID << endl;
+#endif
 			return d;
 		}
 
@@ -343,8 +347,6 @@ void Network::init_from_spec(NetworkDescription const& spec)
 		delay_count[i] = new unsigned int[D];
 		delay_count_pre[i] = new unsigned int[D];
 
-		for (int d=0; d<D; ++d)
-			delay_count_pre[i][d] = 0;
 		// set number of pre-synaptic neurons to zero at first
 		num_pre[i] = 0;
 		// alloc memory for currents and depression
@@ -355,10 +357,11 @@ void Network::init_from_spec(NetworkDescription const& spec)
 		for (unsigned int j=0;j<1000+D;++j)
 			LTP[i][j] = 0.0;
 		// set delay_count and delay_start initially to zero
-		for (int d=0; d<D; d++)
+		for (int del=0; del<D; ++del)
 		{
-			delay_start[i][d] = 0;
-			delay_count[i][d] = 0;
+			delay_start[i][del] = 0;
+			delay_count[i][del] = 0;
+			delay_count_pre[i][del] = 0;
 		}
 		// set membrane potentials to v_reset for all neurons
 		membranes[i] = v_reset;
@@ -756,7 +759,9 @@ void Network::step()
 #else
 			for (unsigned int i=0;i<N;i++)		// prepare for the next sec
 			{
+#ifdef DEBUG_OUTPUT
 				cout << "Neuron " << i << " num_post " << num_post[i] << endl;
+#endif
 				if (i< Ne && num_post[i] > 0)
 				{
 #ifdef DEBUG_OUTPUT
@@ -1005,5 +1010,12 @@ void Network::init_random()
 			last_delay += delay_count_pre[i][d];
 		}
 	}
+
+	INIT_TIMER(complete)
+	last_total_spikes = 0;
+	total_spikes = 0;
+	sec = 0;
+	last_sec = 0;
+	t = 0;
 }
 
